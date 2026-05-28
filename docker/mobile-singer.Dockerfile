@@ -18,7 +18,7 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/ui/package.json ./packages/ui/
 
 # Install all dependencies
-RUN pnpm install --frozen-lockfile || pnpm install
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --store-dir /pnpm/store || pnpm install --store-dir /pnpm/store
 
 # Copy complete source code
 COPY . .

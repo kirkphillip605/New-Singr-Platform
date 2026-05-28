@@ -21,7 +21,7 @@ COPY packages/ui/package.json ./packages/ui/
 RUN pnpm config set node-linker hoisted
 
 # Install all dependencies
-RUN pnpm install --frozen-lockfile || pnpm install
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --store-dir /pnpm/store || pnpm install --store-dir /pnpm/store
 
 # Stage 2: builder — copy source and build
 FROM deps AS builder

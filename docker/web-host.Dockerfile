@@ -18,7 +18,7 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/ui/package.json ./packages/ui/
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile || pnpm install
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --store-dir /pnpm/store || pnpm install --store-dir /pnpm/store
 
 # Copy complete source code
 COPY . .
@@ -30,7 +30,7 @@ RUN cp .env apps/web-host/.env || true
 RUN pnpm --filter @singr/db generate
 
 # Build Next.js production build
-RUN pnpm --filter @singr/web-host build
+RUN --mount=type=cache,id=next-host-cache,target=/app/apps/web-host/.next/cache pnpm --filter @singr/web-host build
 
 # Stage 2: Runtime image
 FROM node:20-alpine AS runner
