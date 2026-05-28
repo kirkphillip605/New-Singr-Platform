@@ -16,6 +16,77 @@ const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock',
 import { passkey } from '@better-auth/passkey'
 import { magicLink } from 'better-auth/plugins/magic-link'
 import { phoneNumber } from 'better-auth/plugins/phone-number'
+
+/**
+ * Reusable Mailjet email sender.
+ * Logs every step for debugging: env check, connector init, request payload, response.
+ */
+async function sendMailjetEmail(opts: {
+  toEmail: string;
+  toName?: string;
+  subject: string;
+  htmlContent: string;
+  logLabel: string;
+}): Promise<boolean> {
+  const { toEmail, toName, subject, htmlContent, logLabel } = opts;
+
+  console.log(`📧 [Mailjet/${logLabel}] Preparing to send email to ${toEmail}`);
+  console.log(`📧 [Mailjet/${logLabel}] MAILJET_API_KEY present: ${!!process.env.MAILJET_API_KEY} (length: ${process.env.MAILJET_API_KEY?.length || 0})`);
+  console.log(`📧 [Mailjet/${logLabel}] MAILJET_API_SECRET present: ${!!process.env.MAILJET_API_SECRET} (length: ${process.env.MAILJET_API_SECRET?.length || 0})`);
+
+  if (!process.env.MAILJET_API_KEY || !process.env.MAILJET_API_SECRET) {
+    console.warn(`⚠️ [Mailjet/${logLabel}] MAILJET_API_KEY or MAILJET_API_SECRET is missing — skipping email send.`);
+    return false;
+  }
+
+  try {
+    console.log(`📧 [Mailjet/${logLabel}] Importing node-mailjet module...`);
+    const mailjetModule = (await import('node-mailjet')) as any;
+    const mailjetConnector = mailjetModule.default?.apiConnect || mailjetModule.apiConnect;
+    
+    if (!mailjetConnector) {
+      console.error(`❌ [Mailjet/${logLabel}] Could not find apiConnect on node-mailjet module. Available keys: ${Object.keys(mailjetModule).join(', ')}`);
+      return false;
+    }
+
+    console.log(`📧 [Mailjet/${logLabel}] Creating Mailjet client...`);
+    const mailjet = mailjetConnector(
+      process.env.MAILJET_API_KEY,
+      process.env.MAILJET_API_SECRET
+    );
+
+    const payload = {
+      Messages: [
+        {
+          From: {
+            Email: 'noreply@singrkaraoke.com',
+            Name: 'Singr Karaoke',
+          },
+          To: [
+            {
+              Email: toEmail,
+              ...(toName ? { Name: toName } : {}),
+            },
+          ],
+          Subject: subject,
+          HTMLPart: htmlContent,
+        },
+      ],
+    };
+
+    console.log(`📧 [Mailjet/${logLabel}] Sending request with payload:`, JSON.stringify(payload, null, 2));
+    const response = await mailjet.post('send', { version: 'v3.1' }).request(payload);
+    console.log(`✅ [Mailjet/${logLabel}] Email sent successfully to ${toEmail}. Response status: ${(response as any)?.response?.status || 'unknown'}`);
+    console.log(`✅ [Mailjet/${logLabel}] Response body:`, JSON.stringify((response as any)?.body || {}, null, 2));
+    return true;
+  } catch (err: any) {
+    console.error(`❌ [Mailjet/${logLabel}] Failed to send email to ${toEmail}:`);
+    console.error(`❌ [Mailjet/${logLabel}] Error message: ${err?.message || 'unknown'}`);
+    console.error(`❌ [Mailjet/${logLabel}] Error status: ${err?.statusCode || err?.response?.status || 'unknown'}`);
+    console.error(`❌ [Mailjet/${logLabel}] Full error:`, err);
+    return false;
+  }
+}
 import { redis } from './redis.js'
 
 // Load environment variables for local testing if not running from root dev script
@@ -90,6 +161,13 @@ async function syncUserSubscription(userId: string, status: 'active' | 'inactive
   }
 }
 
+// Log startup env state for debugging email sending
+console.log('🔧 [Auth Config] Initializing Better Auth...');
+console.log(`🔧 [Auth Config] MAILJET_API_KEY present: ${!!process.env.MAILJET_API_KEY}`);
+console.log(`🔧 [Auth Config] MAILJET_API_SECRET present: ${!!process.env.MAILJET_API_SECRET}`);
+console.log(`🔧 [Auth Config] BETTER_AUTH_URL: ${process.env.BETTER_AUTH_URL}`);
+console.log(`🔧 [Auth Config] NODE_ENV: ${process.env.NODE_ENV}`);
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
@@ -122,99 +200,71 @@ export const auth = betterAuth({
     },
   },
 
+  // =============================================
+  // EMAIL VERIFICATION — top-level config (NOT inside emailAndPassword)
+  // This is where Better Auth looks for sendVerificationEmail.
+  // See: https://www.better-auth.com/docs/authentication/email-password#email-verification
+  // =============================================
+  emailVerification: {
+    sendOnSignUp: true,   // Automatically send verification email when a user signs up
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url, token: _token }: any, _request: any) => {
+      console.log(`✉️ [emailVerification.sendVerificationEmail] TRIGGERED for ${user.email}`);
+      console.log(`✉️ [emailVerification.sendVerificationEmail] Verification URL: ${url}`);
+
+      const firstName = (user as any).firstName || (user as any).name || 'there';
+
+      await sendMailjetEmail({
+        toEmail: user.email,
+        toName: firstName,
+        subject: 'Verify Your Email Address - Singr',
+        logLabel: 'VerificationEmail',
+        htmlContent: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #1a1a1a; color: #ffffff;">
+            <h2 style="color: #FF5722;">Welcome to Singr!</h2>
+            <p>Hello ${firstName},</p>
+            <p>Thank you for signing up. Please verify your email address by clicking the button below:</p>
+            <div style="margin: 24px 0;">
+              <a href="${url}" style="background-color: #FF5722; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Verify Email Address</a>
+            </div>
+            <p style="color: #aaa; font-size: 12px;">Or copy and paste this URL into your browser:</p>
+            <p style="color: #aaa; font-size: 12px; word-break: break-all;"><a href="${url}" style="color: #FF5722;">${url}</a></p>
+            <p style="color: #888; font-size: 11px; margin-top: 24px;">This link is valid for 24 hours.</p>
+          </div>
+        `,
+      });
+    },
+  },
+
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
-    sendVerificationEmail: async ({ user, url, token: _token }: any) => {
-      console.log(`✉️ Verification email requested for ${user.email}: ${url}`)
-      if (process.env.MAILJET_API_KEY && process.env.MAILJET_API_SECRET) {
-        try {
-          const mailjetModule = (await import('node-mailjet')) as any
-          const mailjetConnector = mailjetModule.default?.apiConnect || mailjetModule.apiConnect
-          const mailjet = mailjetConnector(
-            process.env.MAILJET_API_KEY,
-            process.env.MAILJET_API_SECRET
-          )
-          await mailjet.post('send', { version: 'v3.1' }).request({
-            Messages: [
-              {
-                From: {
-                  Email: 'noreply@singrkaraoke.com',
-                  Name: 'Singr Karaoke',
-                },
-                To: [
-                  {
-                    Email: user.email,
-                  },
-                ],
-                Subject: 'Verify Your Email Address - Singr',
-                HTMLPart: `
-                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #1a1a1a; color: #ffffff;">
-                    <h2 style="color: #FF5722;">Welcome to Singr!</h2>
-                    <p>Hello ${(user as any).firstName || 'Singer'},</p>
-                    <p>Thank you for signing up. Please verify your email address by clicking the button below:</p>
-                    <div style="margin: 24px 0;">
-                      <a href="${url}" style="background-color: #FF5722; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Verify Email Address</a>
-                    </div>
-                    <p style="color: #aaa; font-size: 12px;">Or copy and paste this URL into your browser:</p>
-                    <p style="color: #aaa; font-size: 12px; word-break: break-all;"><a href="${url}" style="color: #FF5722;">${url}</a></p>
-                    <p style="color: #888; font-size: 11px; margin-top: 24px;">This link is valid for 24 hours.</p>
-                  </div>
-                `,
-              },
-            ],
-          })
-          console.log(`✅ Verification email sent successfully via Mailjet to ${user.email}`)
-        } catch (err) {
-          console.error('❌ Failed to send verification email via Mailjet:', err)
-        }
-      }
-    },
     sendResetPassword: async ({ user, url, token: _token }: any) => {
-      console.log(`✉️ Reset password requested for ${user.email}: ${url}`)
-      if (process.env.MAILJET_API_KEY && process.env.MAILJET_API_SECRET) {
-        try {
-          const mailjetModule = (await import('node-mailjet')) as any
-          const mailjetConnector = mailjetModule.default?.apiConnect || mailjetModule.apiConnect
-          const mailjet = mailjetConnector(
-            process.env.MAILJET_API_KEY,
-            process.env.MAILJET_API_SECRET
-          )
-          await mailjet.post('send', { version: 'v3.1' }).request({
-            Messages: [
-              {
-                From: {
-                  Email: 'noreply@singrkaraoke.com',
-                  Name: 'Singr Karaoke',
-                },
-                To: [
-                  {
-                    Email: user.email,
-                  },
-                ],
-                Subject: 'Reset Your Password - Singr',
-                HTMLPart: `
-                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #1a1a1a; color: #ffffff;">
-                    <h2 style="color: #FF5722;">Reset Your Password</h2>
-                    <p>Hello ${(user as any).firstName || 'Singer'},</p>
-                    <p>We received a request to reset your password. Click the button below to set a new password:</p>
-                    <div style="margin: 24px 0;">
-                      <a href="${url}" style="background-color: #FF5722; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Reset Password</a>
-                    </div>
-                    <p style="color: #aaa; font-size: 12px;">Or copy and paste this URL into your browser:</p>
-                    <p style="color: #aaa; font-size: 12px; word-break: break-all;"><a href="${url}" style="color: #FF5722;">${url}</a></p>
-                    <p style="color: #888; font-size: 11px; margin-top: 24px;">If you did not request a password reset, you can safely ignore this email.</p>
-                  </div>
-                `,
-              },
-            ],
-          })
-          console.log(`✅ Reset password email sent successfully via Mailjet to ${user.email}`)
-        } catch (err) {
-          console.error('❌ Failed to send reset password email via Mailjet:', err)
-        }
-      }
-    }
+      console.log(`✉️ [emailAndPassword.sendResetPassword] TRIGGERED for ${user.email}`);
+      console.log(`✉️ [emailAndPassword.sendResetPassword] Reset URL: ${url}`);
+
+      const firstName = (user as any).firstName || (user as any).name || 'there';
+
+      await sendMailjetEmail({
+        toEmail: user.email,
+        toName: firstName,
+        subject: 'Reset Your Password - Singr',
+        logLabel: 'ResetPassword',
+        htmlContent: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #1a1a1a; color: #ffffff;">
+            <h2 style="color: #FF5722;">Reset Your Password</h2>
+            <p>Hello ${firstName},</p>
+            <p>We received a request to reset your password. Click the button below to set a new password:</p>
+            <div style="margin: 24px 0;">
+              <a href="${url}" style="background-color: #FF5722; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Reset Password</a>
+            </div>
+            <p style="color: #aaa; font-size: 12px;">Or copy and paste this URL into your browser:</p>
+            <p style="color: #aaa; font-size: 12px; word-break: break-all;"><a href="${url}" style="color: #FF5722;">${url}</a></p>
+            <p style="color: #888; font-size: 11px; margin-top: 24px;">If you did not request a password reset, you can safely ignore this email.</p>
+          </div>
+        `,
+      });
+    },
   },
 
   // Enable secondary session storage in Redis for speed & rate limiting
@@ -293,38 +343,26 @@ export const auth = betterAuth({
     passkey(),
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        console.log(`✉️ Magic link requested for ${email}: ${url}`)
-        // If Mailjet is configured, we will send email via Mailjet SDK
-        if (process.env.MAILJET_API_KEY && process.env.MAILJET_API_SECRET) {
-          try {
-            const mailjetModule = (await import('node-mailjet')) as any
-            const mailjetConnector = mailjetModule.default?.apiConnect || mailjetModule.apiConnect
-            const mailjet = mailjetConnector(
-              process.env.MAILJET_API_KEY,
-              process.env.MAILJET_API_SECRET
-            )
-            await mailjet.post('send', { version: 'v3.1' }).request({
-              Messages: [
-                {
-                  From: {
-                    Email: 'noreply@singrkaraoke.com',
-                    Name: 'Singr Karaoke',
-                  },
-                  To: [
-                    {
-                      Email: email,
-                    },
-                  ],
-                  Subject: 'Your Magic Sign-In Link for Singr',
-                  HTMLPart: `<h3>Welcome to Singr!</h3><p>Click <a href="${url}">here</a> to sign in to your account.</p><p>This link is valid for 10 minutes.</p>`,
-                },
-              ],
-            })
-            console.log(`✅ Magic link email sent successfully via Mailjet to ${email}`)
-          } catch (err) {
-            console.error('❌ Failed to send magic link email via Mailjet:', err)
-          }
-        }
+        console.log(`✉️ [magicLink.sendMagicLink] TRIGGERED for ${email}`);
+        console.log(`✉️ [magicLink.sendMagicLink] Magic link URL: ${url}`);
+
+        await sendMailjetEmail({
+          toEmail: email,
+          subject: 'Your Magic Sign-In Link for Singr',
+          logLabel: 'MagicLink',
+          htmlContent: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #1a1a1a; color: #ffffff;">
+              <h2 style="color: #FF5722;">Welcome to Singr!</h2>
+              <p>Click the button below to sign in to your account:</p>
+              <div style="margin: 24px 0;">
+                <a href="${url}" style="background-color: #FF5722; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Sign In to Singr</a>
+              </div>
+              <p style="color: #aaa; font-size: 12px;">Or copy and paste this URL into your browser:</p>
+              <p style="color: #aaa; font-size: 12px; word-break: break-all;"><a href="${url}" style="color: #FF5722;">${url}</a></p>
+              <p style="color: #888; font-size: 11px; margin-top: 24px;">This link is valid for 10 minutes.</p>
+            </div>
+          `,
+        });
       },
     }),
     twoFactor({
