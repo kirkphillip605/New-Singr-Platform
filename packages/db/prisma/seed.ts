@@ -1,4 +1,4 @@
-import { prisma } from '../src/client.js'
+import { rawPrisma as prisma } from '../src/client.js'
 
 async function main() {
   console.log('🌱 Starting database seeding...')
@@ -312,6 +312,13 @@ async function main() {
   })
 
   console.log('✅ Database seeding completed successfully!')
+  console.log('\n--- Seeded User Credentials ---')
+  console.log('🔑 Password for all accounts: password123\n')
+  console.log(`👤 Admin:    ${admin.email}`)
+  console.log(`👤 Host:     ${host.email}`)
+  console.log(`👤 Singer 1: ${singer1.email}`)
+  console.log(`👤 Singer 2: ${singer2.email}`)
+  console.log('-------------------------------\n')
 }
 
 main()
