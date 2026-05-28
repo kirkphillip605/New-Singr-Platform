@@ -47,4 +47,4 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD wget -q --spider http://localhost:3001/health || exit 1
 
-CMD ["pnpm", "--filter", "@singr/api-node", "start"]
+CMD ["node", "apps/api-node/dist/index.js"]
