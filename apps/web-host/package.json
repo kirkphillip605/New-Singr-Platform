@@ -4,10 +4,29 @@
   "private": true,
   "description": "Next.js Host Portal — host.singrkaraoke.com",
   "scripts": {
-    "dev": "echo 'Host portal placeholder — Next.js project will be scaffolded in Phase 7'",
-    "build": "echo 'No build yet'",
-    "lint": "echo 'No lint yet'",
-    "type-check": "echo 'No type-check yet'",
-    "clean": "rm -rf .next out"
+    "dev": "next dev --port 3011",
+    "build": "next build",
+    "start": "next start --port 3011",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@singr/shared": "workspace:*",
+    "@singr/ui": "workspace:*",
+    "better-auth": "^1.1.18",
+    "lucide-react": "^0.475.0",
+    "next": "^15.1.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@singr/config": "workspace:*",
+    "@types/node": "^22.13.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.20.1",
+    "eslint-config-next": "^15.1.7",
+    "typescript": "^5.8.0"
   }
 }

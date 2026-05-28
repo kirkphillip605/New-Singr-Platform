@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io'
 import type { Server as HTTPServer } from 'http'
 import { auth } from '../lib/auth.js'
+import { fromNodeHeaders } from 'better-auth/node'
 import pino from 'pino'
 
 const logger = pino()
@@ -24,7 +25,7 @@ export function initWebSocketServer(server: HTTPServer): Server {
     try {
       const headers = socket.handshake.headers
       const session = await auth.api.getSession({
-        headers: headers as any,
+        headers: fromNodeHeaders(headers as any),
       })
 
       if (session) {

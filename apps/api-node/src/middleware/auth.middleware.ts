@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { auth } from '../lib/auth.js'
+import { fromNodeHeaders } from 'better-auth/node'
 
 export interface AuthenticatedRequest extends Request {
   session?: any
@@ -16,9 +17,14 @@ export const requireAuth = async (
   next: NextFunction
 ) => {
   try {
+    console.log('🔍 [requireAuth] Raw req.headers:', req.headers)
+    const wrappedHeaders = fromNodeHeaders(req.headers)
+    console.log('🔍 [requireAuth] Wrapped headers:', JSON.stringify(wrappedHeaders))
+    
     const session = await auth.api.getSession({
-      headers: req.headers,
+      headers: wrappedHeaders,
     })
+    console.log('🔍 [requireAuth] Resolved session:', session)
 
     if (!session) {
       return res.status(401).json({
@@ -52,7 +58,7 @@ export const optionalAuth = async (
 ) => {
   try {
     const session = await auth.api.getSession({
-      headers: req.headers,
+      headers: fromNodeHeaders(req.headers),
     })
 
     if (session) {

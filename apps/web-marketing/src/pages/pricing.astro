@@ -1,0 +1,125 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { GlassCard, GlassButton } from '@singr/ui';
+
+interface Tier {
+  stripePriceId: string;
+  name: string;
+  priceCents: number;
+  interval: string;
+  features: string[] | any;
+  active: boolean;
+}
+
+let tiers: Tier[] = [];
+let errorMsg = "";
+
+try {
+  const res = await fetch('http://localhost:3001/api/v1/billing/tiers', {
+    // Provide a short timeout so server-side rendering doesn't hang indefinitely if API is down
+    signal: AbortSignal.timeout(2000)
+  });
+  if (res.ok) {
+    const data = await res.json();
+    tiers = data.tiers || [];
+  } else {
+    throw new Error(`Failed to load: ${res.statusText}`);
+  }
+} catch (err: any) {
+  errorMsg = err.message || String(err);
+  // Graceful fallback to premium static tiers matching local development expectations
+  tiers = [
+    {
+      stripePriceId: "price_sandbox_standard",
+      name: "Standard Host",
+      priceCents: 2900,
+      interval: "month",
+      features: [
+        "Up to 2 active shows concurrently",
+        "Full real-time drag & drop queue console",
+        "Google Places location integration",
+        "Legacy OpenKJ / SongbookAgent compatibility",
+        "Email support response under 24hrs"
+      ],
+      active: true
+    },
+    {
+      stripePriceId: "price_sandbox_premium",
+      name: "Premium Venue",
+      priceCents: 5900,
+      interval: "month",
+      features: [
+        "Unlimited concurrent venues & shows",
+        "Up to 5 host-manager sub-accounts",
+        "API system rotation & keys generation",
+        "Priority VIP request queue settings",
+        "Dedicated Discord & live phone support"
+      ],
+      active: true
+    }
+  ];
+}
+
+const formatPrice = (cents: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0
+  }).format(cents / 100);
+};
+---
+
+<Layout title="Simple Transparent Pricing — Singr Karaoke">
+  <section class="py-12">
+    <div class="max-w-3xl mx-auto text-center mb-16">
+      <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-3 block font-sans">Flexible Subscription Models</span>
+      <h1 class="text-4xl md:text-6xl font-extrabold text-white mb-6">Simple, Transparent Pricing</h1>
+      <p class="text-base md:text-lg text-[var(--singr-text-secondary)] font-sans font-light leading-relaxed">
+        Choose the plan that fits your hosting operations. No setup fees, no hidden costs. Scale your venues and managers as your business expands.
+      </p>
+      {errorMsg && (
+        <div class="mt-4 p-2 inline-block rounded text-[10px] bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 font-mono">
+          ℹ️ Server offline (showing Stripe Sandbox cached options)
+        </div>
+      )}
+    </div>
+
+    <!-- Pricing Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+      {tiers.map((tier) => (
+        <GlassCard className="p-10 flex flex-col justify-between relative overflow-hidden" hoverable={true}>
+          {tier.name.includes("Premium") && (
+            <div class="absolute top-0 right-0 bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] text-white text-[10px] uppercase font-bold tracking-widest px-4 py-1.5 rounded-bl-lg">
+              Most Popular
+            </div>
+          )}
+          <div>
+            <h3 class="text-2xl font-extrabold text-white mb-2">{tier.name}</h3>
+            <div class="flex items-baseline gap-2 mb-6">
+              <span class="text-5xl font-extrabold text-white font-sans">{formatPrice(tier.priceCents)}</span>
+              <span class="text-sm text-[var(--singr-text-secondary)] font-sans">/{tier.interval}</span>
+            </div>
+            <div class="border-t border-[var(--singr-border)] my-6"></div>
+            <ul class="list-none p-0 m-0 flex flex-col gap-4 mb-8">
+              {Array.isArray(tier.features) ? (
+                tier.features.map((feat: string) => (
+                  <li class="flex items-center gap-3 text-sm text-[var(--singr-text-secondary)] font-sans">
+                    <span class="text-[var(--singr-accent-primary)] font-bold text-base">✓</span>
+                    {feat}
+                  </li>
+                ))
+              ) : (
+                <li class="text-sm text-[var(--singr-text-secondary)] font-sans">Standard tier features included</li>
+              )}
+            </ul>
+          </div>
+          <a href={`http://localhost:3011/login?tier=${tier.stripePriceId}`} class="decoration-none w-full">
+            <GlassButton variant={tier.name.includes("Premium") ? "primary" : "secondary"} className="w-full py-3 text-sm">
+              Subscribe as Host
+            </GlassButton>
+          </a>
+        </GlassCard>
+      ))}
+    </div>
+  </section>
+</Layout>

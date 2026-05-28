@@ -32,7 +32,7 @@ export const songSyncQueue = new Queue('song-sync', {
  */
 export async function triggerSongSyncDebounce(systemId: string) {
   try {
-    const jobId = `sync:${systemId}`
+    const jobId = `sync-${systemId}`
     const existingJob = await songSyncQueue.getJob(jobId)
 
     if (existingJob) {

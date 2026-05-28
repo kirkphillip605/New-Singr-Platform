@@ -1,0 +1,55 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { GlassCard, GlassButton } from '@singr/ui';
+---
+
+<Layout title="For Hosts — Singr Karaoke">
+  <section class="py-12">
+    <div class="max-w-3xl mx-auto text-center mb-16">
+      <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-3 block">Professional Grade Business Software</span>
+      <h1 class="text-4xl md:text-6xl font-extrabold text-white mb-6">Designed for Professional KJs</h1>
+      <p class="text-base md:text-lg text-[var(--singr-text-secondary)] font-sans font-light leading-relaxed">
+        Singr gives you everything you need to run your karaoke shows smoothly. Say goodbye to chaotic paper lists and outdated tech, and welcome a beautiful, cohesive, and high-performance workflow.
+      </p>
+    </div>
+
+    <!-- Features Breakdown -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <GlassCard className="p-8">
+        <h3 class="text-xl font-bold text-white mb-4">Drag-and-Drop Queue</h3>
+        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Reorder singer lists instantly. Mark songs as played or cancel requests, and watch the singer's app update their expected queue position within milliseconds.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-8">
+        <h3 class="text-xl font-bold text-white mb-4">Multi-Venue CRUD</h3>
+        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Whether you host at two bars or twenty, organize all venues, active shows, and schedules under one central account dashboard.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-8">
+        <h3 class="text-xl font-bold text-white mb-4">Hardware Integration</h3>
+        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Generate system API keys to link our lightweight desktop agent or legacy OpenKJ setup directly. Push thousands of songs to our cloud songbook via background workers.
+        </p>
+      </GlassCard>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="mt-20 text-center">
+      <GlassCard className="p-10 max-w-2xl mx-auto">
+        <h2 class="text-3xl font-extrabold text-white mb-4">Elevate Your Show Quality</h2>
+        <p class="text-sm text-[var(--singr-text-secondary)] font-sans mb-8 leading-relaxed">
+          Ready to try the most sophisticated karaoke host portal on the market? Join our Stripe sandbox trial program and start hosting tonight.
+        </p>
+        <a href="http://localhost:3011/login" class="decoration-none">
+          <GlassButton variant="primary" className="px-8 py-3 text-sm">
+            Access Host Portal
+          </GlassButton>
+        </a>
+      </GlassCard>
+    </div>
+  </section>
+</Layout>

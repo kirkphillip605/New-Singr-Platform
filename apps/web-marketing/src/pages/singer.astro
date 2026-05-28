@@ -1,0 +1,74 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { GlassCard, GlassButton } from '@singr/ui';
+---
+
+<Layout title="For Singers — Singr Karaoke">
+  <section class="py-12">
+    <div class="max-w-3xl mx-auto text-center mb-16">
+      <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-secondary)] mb-3 block">Singers First Paradigm</span>
+      <h1 class="text-4xl md:text-6xl font-extrabold text-white mb-6">Designed for Karaoke Vocalists</h1>
+      <p class="text-base md:text-lg text-[var(--singr-text-secondary)] font-sans font-light leading-relaxed">
+        Say goodbye to heavy, dirty songbook binders and manual paper slips. Finding your favorite tracks and submitting requests has never been faster or more delightful.
+      </p>
+    </div>
+
+    <!-- Features Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+      <GlassCard className="p-8 flex gap-6 items-start">
+        <div class="text-3xl">📍</div>
+        <div>
+          <h3 class="text-xl font-bold text-white mb-2">Nearby Shows Map</h3>
+          <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Allow location access on your mobile web or native app to immediately list open, accepting shows within your area. Plot coordinates dynamically with our custom mapping integrations.
+          </p>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-8 flex gap-6 items-start">
+        <div class="text-3xl">🔍</div>
+        <div>
+          <h3 class="text-xl font-bold text-white mb-2">Postgres Full-Text Search</h3>
+          <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Never struggle finding misspelled artists or titles. Our GIN index search engine filters tens of thousands of tracks instantly as you type, supporting partial and fuzzy matches.
+          </p>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-8 flex gap-6 items-start">
+        <div class="text-3xl">⏱️</div>
+        <div>
+          <h3 class="text-xl font-bold text-white mb-2">WebSocket Queue Sync</h3>
+          <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            No more wandering up to the DJ booth to ask "How many people are ahead of me?". Your active request details your exact live position in the host's queue in real-time.
+          </p>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-8 flex gap-6 items-start">
+        <div class="text-3xl">⭐️</div>
+        <div>
+          <h3 class="text-xl font-bold text-white mb-2">Favorites & History</h3>
+          <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Maintain your absolute best vocal roster. Add any catalog song to your persistent favorites list, review your requests history across multiple venues, and request key shifts (-6 to +6) in a click.
+          </p>
+        </div>
+      </GlassCard>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="text-center">
+      <GlassCard className="p-10 max-w-2xl mx-auto">
+        <h2 class="text-3xl font-extrabold text-white mb-4">Start Singing Now</h2>
+        <p class="text-sm text-[var(--singr-text-secondary)] font-sans mb-8 leading-relaxed">
+          Join active shows instantly. Anonymous guest profiles are supported so you can join a show and request a song without completing any complex sign-ups.
+        </p>
+        <a href="http://localhost:3012/" class="decoration-none">
+          <GlassButton variant="primary" className="px-8 py-3 text-sm">
+            Launch Singer Web App
+          </GlassButton>
+        </a>
+      </GlassCard>
+    </div>
+  </section>
+</Layout>

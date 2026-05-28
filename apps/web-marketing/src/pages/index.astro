@@ -1,0 +1,87 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { GlassCard, GlassButton } from '@singr/ui';
+---
+
+<Layout title="Premium Multi-Tenant Karaoke SaaS Platform">
+  <!-- Hero Section -->
+  <section class="text-center py-20">
+    <div class="max-w-3xl mx-auto">
+      <h1 class="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">
+        Karaoke Software,<br />
+        <span class="bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] bg-clip-text text-transparent" style="background: var(--singr-brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Redefined.</span>
+      </h1>
+      <p class="text-lg md:text-xl text-[var(--singr-text-secondary)] mb-10 leading-relaxed font-sans font-light">
+        A premium, real-time ecosystem connecting venues, professional hosts, and singers seamlessly. Built with ultra-low latency WebSockets, Glassmorphic aesthetics, and bulletproof reliability.
+      </p>
+      <div class="flex flex-col sm:flex-row justify-center gap-4">
+        <a href="/host" class="decoration-none">
+          <GlassButton variant="primary" className="px-8 py-4 text-base w-full sm:w-auto">
+            Get Started as Host
+          </GlassButton>
+        </a>
+        <a href="/singer" class="decoration-none">
+          <GlassButton variant="secondary" className="px-8 py-4 text-base w-full sm:w-auto">
+            Find Nearby Shows
+          </GlassButton>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Verticals Grid -->
+  <section class="py-12">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <!-- For Hosts -->
+      <GlassCard hoverable={true} className="p-8 flex flex-col justify-between">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-3 block">For Professional KJs</span>
+          <h2 class="text-3xl font-extrabold text-white mb-4">Host Portal</h2>
+          <p class="text-[var(--singr-text-secondary)] leading-relaxed mb-6 font-sans">
+            Manage your entire business from a single gorgeous console. Drag-and-drop live singer queues, configure complex team sub-accounts, monitor multi-system hardware keys, and integrate Stripe subscriptions effortlessly.
+          </p>
+        </div>
+        <a href="/host" class="decoration-none self-start">
+          <GlassButton variant="secondary" className="text-sm">Explore Host Features &rarr;</GlassButton>
+        </a>
+      </GlassCard>
+
+      <!-- For Singers -->
+      <GlassCard hoverable={true} className="p-8 flex flex-col justify-between">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-secondary)] mb-3 block">For Passionate Vocalists</span>
+          <h2 class="text-3xl font-extrabold text-white mb-4">Singer Mobile App</h2>
+          <p class="text-[var(--singr-text-secondary)] leading-relaxed mb-6 font-sans">
+            No more dirty paper slip requests or outdated binders. View active nearby venues on an interactive map, browse songbooks instantly with Postgres GIN full-text search, submit requests in seconds, and track your queue position in real-time.
+          </p>
+        </div>
+        <a href="/singer" class="decoration-none self-start">
+          <GlassButton variant="secondary" className="text-sm">Explore Singer Features &rarr;</GlassButton>
+        </a>
+      </GlassCard>
+    </div>
+  </section>
+
+  <!-- Trust Banner / Real-time stats -->
+  <section class="py-16 mt-12 text-center">
+    <h3 class="text-2xl font-bold mb-8 text-white">Why Venues & KJs Choose Singr</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <GlassCard className="p-6">
+        <p class="text-4xl font-extrabold text-white mb-2 font-sans" style="font-family: 'Outfit', sans-serif;">&lt; 50ms</p>
+        <p class="text-xs text-[var(--singr-text-secondary)] uppercase tracking-wider font-semibold font-sans m-0">WS Sync Latency</p>
+      </GlassCard>
+      <GlassCard className="p-6">
+        <p class="text-4xl font-extrabold text-white mb-2 font-sans" style="font-family: 'Outfit', sans-serif;">100%</p>
+        <p class="text-xs text-[var(--singr-text-secondary)] uppercase tracking-wider font-semibold font-sans m-0">Digital Catalog</p>
+      </GlassCard>
+      <GlassCard className="p-6">
+        <p class="text-4xl font-extrabold text-white mb-2 font-sans" style="font-family: 'Outfit', sans-serif;">10x</p>
+        <p class="text-xs text-[var(--singr-text-secondary)] uppercase tracking-wider font-semibold font-sans m-0">Faster Rotation</p>
+      </GlassCard>
+      <GlassCard className="p-6">
+        <p class="text-4xl font-extrabold text-white mb-2 font-sans" style="font-family: 'Outfit', sans-serif;">100%</p>
+        <p class="text-xs text-[var(--singr-text-secondary)] uppercase tracking-wider font-semibold font-sans m-0">Frosted Glass UI</p>
+      </GlassCard>
+    </div>
+  </section>
+</Layout>

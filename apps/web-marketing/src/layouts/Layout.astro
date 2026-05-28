@@ -1,0 +1,133 @@
+---
+import '@singr/ui/styles';
+
+interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const {
+  title,
+  description = "Singr Karaoke Platform — Multi-tenant real-time karaoke software for venues, hosts, and singers.",
+  ogImage = "/images/og-default.jpg"
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- SEO Meta Tags -->
+    <title>{title} | Singr Karaoke</title>
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content={ogImage} />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <style is:global>
+      /* Base Styling using System Variables */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--singr-bg-primary);
+        color: var(--singr-text-primary);
+        font-family: 'Inter', sans-serif;
+        min-height: 100vh;
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(255, 69, 50, 0.05) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(255, 170, 44, 0.05) 0px, transparent 50%);
+        background-attachment: fixed;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body class="dark">
+    <!-- Navbar -->
+    <header class="glass-panel border-x-0 border-t-0 rounded-none sticky top-0 z-50 px-6 py-4">
+      <div class="max-w-6xl mx-auto flex justify-between items-center">
+        <a href="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight text-white decoration-none hover:opacity-90 transition-opacity">
+          <span class="bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] bg-clip-text text-transparent" style="background: var(--singr-brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🎤 Singr</span>
+        </a>
+        <nav class="hidden md:flex gap-8">
+          <a href="/host" class="text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] transition-colors font-medium decoration-none text-sm">For Hosts</a>
+          <a href="/singer" class="text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] transition-colors font-medium decoration-none text-sm">For Singers</a>
+          <a href="/pricing" class="text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] transition-colors font-medium decoration-none text-sm">Pricing</a>
+        </nav>
+        <div class="flex items-center gap-4">
+          <a href="http://localhost:3011/login" class="glass-button-secondary py-2 px-4 text-xs font-semibold rounded-lg decoration-none">Host Portal</a>
+          <a href="http://localhost:3012/" class="glass-button-primary py-2 px-4 text-xs font-semibold rounded-lg decoration-none">Singer App</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-6 py-12">
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-[var(--singr-border)] mt-24 py-12 px-6 bg-[var(--singr-bg-secondary)]/30 backdrop-blur-md">
+      <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div>
+          <h4 class="text-lg font-bold mb-4 bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] bg-clip-text text-transparent" style="background: var(--singr-brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🎤 Singr</h4>
+          <p class="text-xs text-[var(--singr-text-secondary)] leading-relaxed">
+            The premium multi-tenant SaaS platform redefining the modern karaoke experience for venues, hosts, and singers.
+          </p>
+        </div>
+        <div>
+          <h5 class="text-sm font-semibold text-[var(--singr-text-primary)] mb-4">Features</h5>
+          <ul class="list-none p-0 m-0 flex flex-col gap-2">
+            <li><a href="/host" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Host Management</a></li>
+            <li><a href="/singer" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Real-time Song Search</a></li>
+            <li><a href="/singer" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Nearby Shows Map</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5 class="text-sm font-semibold text-[var(--singr-text-primary)] mb-4">Platform</h5>
+          <ul class="list-none p-0 m-0 flex flex-col gap-2">
+            <li><a href="/pricing" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Pricing Tiers</a></li>
+            <li><a href="http://localhost:3011/" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Host Console</a></li>
+            <li><a href="http://localhost:3012/" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Singer Web App</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5 class="text-sm font-semibold text-[var(--singr-text-primary)] mb-4">Contact</h5>
+          <p class="text-xs text-[var(--singr-text-secondary)] leading-relaxed m-0">
+            Support: support@singrkaraoke.com<br/>
+            Sales: sales@singrkaraoke.com
+          </p>
+        </div>
+      </div>
+      <div class="max-w-6xl mx-auto mt-8 pt-8 border-t border-[var(--singr-border)] text-center">
+        <p class="text-xs text-[var(--singr-text-secondary)] m-0">
+          &copy; {new Date().getFullYear()} Singr Karaoke. All rights reserved. Built with Astro & React.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

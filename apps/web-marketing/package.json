@@ -3,11 +3,26 @@
   "version": "0.0.1",
   "private": true,
   "description": "Astro marketing site — singrkaraoke.com",
+  "type": "module",
   "scripts": {
-    "dev": "echo 'Marketing site placeholder — Astro project will be scaffolded in Phase 7'",
-    "build": "echo 'No build yet'",
-    "lint": "echo 'No lint yet'",
-    "type-check": "echo 'No type-check yet'",
-    "clean": "rm -rf dist .astro"
+    "dev": "astro dev --port 3010",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@astrojs/react": "^4.2.0",
+    "@singr/ui": "workspace:*",
+    "astro": "^5.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@singr/config": "workspace:*",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.8.0"
   }
 }

@@ -9,7 +9,6 @@ import { redis } from './lib/redis.js'
 import { createServer } from 'http'
 import { initWebSocketServer } from './ws/ws-server.js'
 import './workers/song-sync.worker.js'
-import authRouter from './routes/auth.routes.js'
 import legacyRouter from './routes/legacy/okj-adapter.routes.js'
 import { errorHandler } from './middleware/error-handler.middleware.js'
 import { rateLimiter } from './middleware/rate-limit.middleware.js'
@@ -73,6 +72,12 @@ app.use(
 )
 
 // Body parsers with raw body preservation for Stripe webhook signature verification
+import { toNodeHandler } from 'better-auth/node'
+import { auth } from './lib/auth.js'
+
+// Mount Better Auth handler BEFORE body parsers to avoid request hanging or 404s
+app.all('/api/auth/*splat', toNodeHandler(auth))
+
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {
@@ -126,9 +131,6 @@ app.get('/health', async (_req, res) => {
     })
   }
 })
-
-// Better Auth endpoints
-app.use('/api/auth', authRouter)
 
 // Legacy OpenKJ Adapter Routes (Phase 4)
 app.use('/api/v1/legacy', legacyRouter)
