@@ -1,0 +1,327 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @map("users_id") @db.Uuid
+  email         String    @unique
+  emailVerified Boolean   @default(false) @map("email_verified")
+  password      String?
+  roles         String[]  @default(["singer"])
+  firstName     String?   @map("first_name")
+  lastName      String?   @map("last_name")
+  phoneNumber   String?   @map("phone_number") @db.VarChar(20)
+  image         String?
+  isAnonymous   Boolean   @default(false) @map("is_anonymous")
+  businessName  String?   @map("business_name")
+  businessLogo  String?   @map("business_logo")
+  businessAbout String?   @map("business_about")
+  singerAbout   String?   @map("singer_about")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime? @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+
+  // Better Auth relations
+  sessions  Session[]
+  accounts  Account[]
+  passkeys  Passkey[]
+  twoFactor TwoFactor[]
+
+  // Team members relations
+  hostTeamMembers HostTeamMember[] @relation("HostUsers")
+  teamMemberships HostTeamMember[] @relation("TeamUsers")
+
+  // Profile relation
+  hostProfile HostProfile?
+
+  // Venue management relations
+  createdVenues Venue[] @relation("CreatedVenues")
+  updatedVenues Venue[] @relation("UpdatedVenues")
+  deletedVenues Venue[] @relation("DeletedVenues")
+
+  // Show management relations
+  showsAsHost  Show[]  @relation("HostShows")
+  createdShows Show[]  @relation("CreatedShows")
+  updatedShows Show[]  @relation("UpdatedShows")
+  deletedShows Show[]  @relation("DeletedShows")
+
+  // Hardware systems relations
+  systemsAsHost  System[] @relation("HostSystems")
+  createdSystems System[] @relation("CreatedSystems")
+  updatedSystems System[] @relation("UpdatedSystems")
+  deletedSystems System[] @relation("DeletedSystems")
+
+  // Requests relations
+  requests        Request[] @relation("SingerRequests")
+  deletedRequests Request[] @relation("DeletedRequests")
+
+  // Favorites relation
+  favorites Favorite[]
+
+  @@map("users")
+}
+
+model Session {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @map("sessions_id") @db.Uuid
+  userId         String    @map("users_id") @db.Uuid
+  token          String    @unique
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz
+  ipAddress      String?   @map("ip_address")
+  userAgent      String?   @map("user_agent")
+  impersonatedBy String?   @map("impersonated_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @map("accounts_id") @db.Uuid
+  userId       String    @map("users_id") @db.Uuid
+  accountId    String    @map("account_id")
+  providerId   String    @map("provider_id")
+  accessToken  String?   @map("access_token")
+  refreshToken String?   @map("refresh_token")
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz
+  password     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@map("accounts")
+}
+
+model Passkey {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @map("passkeys_id") @db.Uuid
+  name            String?
+  publicKey       String   @map("public_key")
+  userId          String   @map("users_id") @db.Uuid
+  webauthnUserId  String   @map("webauthn_user_id")
+  counter         Int
+  deviceType      String   @map("device_type") @db.VarChar(255)
+  backedUp        Boolean  @default(false) @map("backed_up")
+  transports      String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("passkeys")
+}
+
+model Verification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @map("verifications_id") @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("verifications")
+}
+
+model TwoFactor {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @map("two_factors_id") @db.Uuid
+  userId      String   @map("users_id") @db.Uuid
+  secret      String
+  backupCodes String   @map("backup_codes")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("two_factors")
+}
+
+model HostTeamMember {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @map("host_team_members_id") @db.Uuid
+  hostUsersId String   @map("host_users_id") @db.Uuid
+  userId      String   @map("users_id") @db.Uuid
+  role        String   @default("host_manager") @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  hostUser User @relation("HostUsers", fields: [hostUsersId], references: [id], onDelete: Cascade)
+  user     User @relation("TeamUsers", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([hostUsersId, userId])
+  @@map("host_team_members")
+}
+
+model HostProfile {
+  userId             String @id @map("users_id") @db.Uuid
+  stripeCustomerId   String? @unique @map("stripe_customer_id")
+  subscriptionStatus String @default("inactive") @map("subscription_status") @db.VarChar(50)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("host_profiles")
+}
+
+model SubscriptionTier {
+  stripePriceId String   @id @map("stripe_price_id")
+  name          String
+  priceCents    Int      @map("price_cents")
+  interval      String   @db.VarChar(20)
+  features      Json?
+  active        Boolean? @default(true)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("subscription_tiers")
+}
+
+model Venue {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @map("venues_id") @db.Uuid
+  externalId       String?   @unique @map("external_id") @db.VarChar(255)
+  externalProvider String?   @map("external_provider") @db.VarChar(50)
+  name             String    @db.VarChar(255)
+  address1         String    @db.VarChar(255)
+  address2         String?   @db.VarChar(255)
+  city             String    @db.VarChar(100)
+  state            String    @db.VarChar(50)
+  zip              String    @db.VarChar(20)
+  lat              Float?
+  lon              Float?
+  placeType        String?   @map("place_type") @db.VarChar(100)
+  hoursOfOperation Json?     @map("hours_of_operation")
+  isPrivate        Boolean   @default(false) @map("is_private")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  createdBy        String?   @map("created_by") @db.Uuid
+  updatedAt        DateTime? @updatedAt @map("updated_at") @db.Timestamptz
+  updatedBy        String?   @map("updated_by") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy        String?   @map("deleted_by") @db.Uuid
+
+  creator User? @relation("CreatedVenues", fields: [createdBy], references: [id])
+  updater User? @relation("UpdatedVenues", fields: [updatedBy], references: [id])
+  deleter User? @relation("DeletedVenues", fields: [deletedBy], references: [id])
+
+  shows Show[]
+
+  @@map("venues")
+}
+
+model Show {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @map("shows_id") @db.Uuid
+  legacyId        Int       @unique @default(autoincrement()) @map("legacy_id")
+  venuesId        String?   @map("venues_id") @db.Uuid
+  hostUsersId     String?   @map("host_users_id") @db.Uuid
+  showName        String    @map("show_name") @db.VarChar(255)
+  slug            String    @unique @db.VarChar(255)
+  pinCode         String?   @map("pin_code") @db.VarChar(10)
+  isAccepting     Boolean   @default(false) @map("is_accepting")
+  activeSystemsId String?   @map("active_systems_id") @db.Uuid
+  serialCounter   Int       @default(0) @map("serial_counter")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedAt       DateTime? @updatedAt @map("updated_at") @db.Timestamptz
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy       String?   @map("deleted_by") @db.Uuid
+
+  venue  Venue? @relation(fields: [venuesId], references: [id], onDelete: Cascade)
+  host   User?  @relation("HostShows", fields: [hostUsersId], references: [id], onDelete: Cascade)
+  creator User? @relation("CreatedShows", fields: [createdBy], references: [id])
+  updater User? @relation("UpdatedShows", fields: [updatedBy], references: [id])
+  deleter User? @relation("DeletedShows", fields: [deletedBy], references: [id])
+
+  requests Request[]
+
+  @@map("shows")
+}
+
+model System {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @map("systems_id") @db.Uuid
+  hostUsersId  String?   @map("host_users_id") @db.Uuid
+  apiKey       String    @unique @map("api_key") @db.VarChar(128)
+  systemNumber Int       @map("system_number")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedAt    DateTime? @updatedAt @map("updated_at") @db.Timestamptz
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy    String?   @map("deleted_by") @db.Uuid
+
+  host    User?  @relation("HostSystems", fields: [hostUsersId], references: [id], onDelete: Cascade)
+  creator User?  @relation("CreatedSystems", fields: [createdBy], references: [id])
+  updater User?  @relation("UpdatedSystems", fields: [updatedBy], references: [id])
+  deleter User?  @relation("DeletedSystems", fields: [deletedBy], references: [id])
+
+  songs       Song[]
+  songsShadow SongShadow[]
+  requests    Request[]
+
+  @@unique([hostUsersId, systemNumber])
+  @@map("systems")
+}
+
+model Song {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @map("songs_id") @db.Uuid
+  systemsId    String?   @map("systems_id") @db.Uuid
+  artist       String    @db.VarChar(255)
+  title        String    @db.VarChar(255)
+  brand        String?   @db.VarChar(100)
+  
+  // Handled via raw SQL migrations for GIN indexing & trigger
+  searchVector Unsupported("tsvector")? @map("search_vector")
+
+  system   System?   @relation(fields: [systemsId], references: [id], onDelete: Cascade)
+  requests Request[]
+
+  @@index([systemsId], map: "songs_system_idx")
+  @@index([searchVector], map: "songs_search_idx", type: Gin)
+  @@map("songs")
+}
+
+model SongShadow {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @map("songs_shadow_id") @db.Uuid
+  systemsId String? @map("systems_id") @db.Uuid
+  artist    String  @db.VarChar(255)
+  title     String  @db.VarChar(255)
+  brand     String? @db.VarChar(100)
+
+  system System? @relation(fields: [systemsId], references: [id], onDelete: Cascade)
+
+  @@index([systemsId], map: "songs_shadow_system_idx")
+  @@map("songs_shadow")
+}
+
+model Request {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @map("requests_id") @db.Uuid
+  legacyId    Int       @unique @default(autoincrement()) @map("legacy_id")
+  systemsId   String?   @map("systems_id") @db.Uuid
+  showsId     String?   @map("shows_id") @db.Uuid
+  usersId     String?   @map("users_id") @db.Uuid
+  singerName  String    @map("singer_name") @db.VarChar(255)
+  songsId     String?   @map("songs_id") @db.Uuid
+  keyChange   Int       @default(0) @map("key_change")
+  status      String    @default("pending") @db.VarChar(50)
+  submittedAt DateTime  @default(now()) @map("submitted_at") @db.Timestamptz
+  updatedAt   DateTime? @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  system  System? @relation(fields: [systemsId], references: [id], onDelete: Cascade)
+  show    Show?   @relation(fields: [showsId], references: [id], onDelete: Cascade)
+  singer  User?   @relation("SingerRequests", fields: [usersId], references: [id], onDelete: SetNull)
+  song    Song?   @relation(fields: [songsId], references: [id], onDelete: Cascade)
+  deleter User?   @relation("DeletedRequests", fields: [deletedBy], references: [id])
+
+  @@map("requests")
+}
+
+model Favorite {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @map("favorites_id") @db.Uuid
+  usersId   String?  @map("users_id") @db.Uuid
+  artist    String   @db.VarChar(255)
+  title     String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User? @relation(fields: [usersId], references: [id], onDelete: Cascade)
+
+  @@unique([usersId, artist, title])
+  @@map("favorites")
+}

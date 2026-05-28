@@ -1,0 +1,13 @@
+{
+  "name": "@singr/desktop-agent",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Electron desktop agent — replaces OpenKJ polling with WebSocket",
+  "scripts": {
+    "dev": "echo 'Desktop agent placeholder — Electron project will be scaffolded in Phase 8'",
+    "build": "echo 'No build yet'",
+    "lint": "echo 'No lint yet'",
+    "type-check": "echo 'No type-check yet'",
+    "clean": "rm -rf dist build"
+  }
+}

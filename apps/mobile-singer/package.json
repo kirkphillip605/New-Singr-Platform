@@ -1,0 +1,13 @@
+{
+  "name": "@singr/mobile-singer",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Framework7 + Capacitor Singer App — app.singrkaraoke.com",
+  "scripts": {
+    "dev": "echo 'Singer app placeholder — Framework7 project will be scaffolded in Phase 7'",
+    "build": "echo 'No build yet'",
+    "lint": "echo 'No lint yet'",
+    "type-check": "echo 'No type-check yet'",
+    "clean": "rm -rf www build"
+  }
+}

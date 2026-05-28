@@ -1,0 +1,38 @@
+{
+  "name": "@singr/db",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Prisma schema, client, and migrations for the Singr database",
+  "type": "module",
+  "main": "./src/client.ts",
+  "types": "./src/client.ts",
+  "exports": {
+    ".": "./src/client.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:status": "prisma migrate status",
+    "migrate:reset": "prisma migrate reset",
+    "seed": "tsx prisma/seed.ts",
+    "studio": "prisma studio",
+    "build": "echo 'db package uses live source — no build step'",
+    "lint": "echo 'No lint yet'",
+    "type-check": "echo 'No type-check yet'",
+    "clean": "rm -rf generated"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.0.0",
+    "@prisma/client": "^7.0.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "prisma": "^7.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "dotenv": "^16.4.0",
+    "@types/pg": "^8.11.0"
+  }
+}

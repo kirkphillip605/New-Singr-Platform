@@ -1,0 +1,13 @@
+{
+  "name": "@singr/web-host",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Next.js Host Portal — host.singrkaraoke.com",
+  "scripts": {
+    "dev": "echo 'Host portal placeholder — Next.js project will be scaffolded in Phase 7'",
+    "build": "echo 'No build yet'",
+    "lint": "echo 'No lint yet'",
+    "type-check": "echo 'No type-check yet'",
+    "clean": "rm -rf .next out"
+  }
+}

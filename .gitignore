@@ -1,0 +1,115 @@
+# =========================
+# Google Antigravity & AI Agents
+# =========================
+# Ignore Antigravity state, logs, and workspace memory
+.antigravity/
+antigravity_logs/
+.ai/
+.cursor/
+.aider/
+.cline/
+
+# =========================
+# Dependencies (pnpm / Node)
+# =========================
+node_modules/
+.pnp
+.pnp.js
+.npm/
+
+# =========================
+# Monorepo / Turborepo
+# =========================
+.turbo/
+
+# =========================
+# Environment Variables & Secrets
+# =========================
+# NEVER commit actual .env files! Only commit .env.example
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.cert
+
+# =========================
+# Next.js (Host & Admin Portals)
+# =========================
+.next/
+out/
+next-env.d.ts
+
+# =========================
+# Astro (Marketing Site)
+# =========================
+dist/
+.astro/
+
+# =========================
+# Framework7 & Capacitor (Singer App)
+# =========================
+www/
+build/
+# Ignore native build artifacts (but keep the actual ios/android project files)
+android/app/build/
+ios/App/App.xcarchive/
+ios/App/DerivedData/
+
+# =========================
+# Backend API (Express / TypeScript)
+# =========================
+dist/
+lib/
+# If using ts-node or similar caching
+.ts-node/
+
+# =========================
+# Database (Prisma / Docker)
+# =========================
+# Ignore local database volumes mapped by Docker Compose
+pgdata/
+redisdata/
+# Prisma generated client (regenerated via `pnpm db:generate`)
+packages/db/generated/
+# Ignore local SQLite files just in case you use them for quick testing
+*.db
+*.db-journal
+
+# =========================
+# Logs & Testing
+# =========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+.nyc_output/
+
+# =========================
+# OS & Editor Settings
+# =========================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDEs
+.idea/
+*.swp
+*.swo
+# Ignore VS Code local settings, but keep project-wide settings if explicitly added
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

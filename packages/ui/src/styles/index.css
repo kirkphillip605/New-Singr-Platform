@@ -1,0 +1,188 @@
+/* ==========================================================================
+   Singr Platform — Glass UI Design System
+   ========================================================================== */
+
+:root {
+  /* Brand Gradients & Colors */
+  --singr-brand-start: #FF4532;
+  --singr-brand-end: #FFAA2C;
+  --singr-brand-gradient: linear-gradient(135deg, var(--singr-brand-start) 0%, var(--singr-brand-end) 100%);
+
+  /* Light Mode Palette */
+  --singr-bg-primary: #FFFFFF;
+  --singr-bg-secondary: #F5F5F7;
+  --singr-text-primary: #1C1C1E;
+  --singr-text-secondary: #6C6C70;
+  --singr-accent-primary: #FF5722;
+  --singr-accent-secondary: #FF9800;
+  --singr-border: #E5E5EA;
+
+  /* Glass UI configuration (Light) */
+  --glass-bg: rgba(255, 255, 255, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --glass-blur: 20px;
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Framework7 Theme Mapping (Light) */
+  --f7-theme-color: #FF5722;
+  --f7-bars-bg-color: #ffffff;
+  --f7-list-bg-color: #ffffff;
+  --f7-page-bg-color: #f5f5f7;
+}
+
+/* Dark Mode (Media Query & Class-Based for flexibility) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --singr-bg-primary: #121214;
+    --singr-bg-secondary: #1C1C1E;
+    --singr-text-primary: #F5F5F7;
+    --singr-text-secondary: #AEAEB2;
+    --singr-accent-primary: #FF6B4A;
+    --singr-accent-secondary: #FFB84D;
+    --singr-border: #2C2C2E;
+
+    --glass-bg: rgba(28, 28, 30, 0.45);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-blur: 25px;
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+
+    --f7-theme-color: #FF6B4A;
+    --f7-bars-bg-color: #1c1c1e;
+    --f7-list-bg-color: #1c1c1e;
+    --f7-page-bg-color: #121214;
+  }
+}
+
+.dark {
+  --singr-bg-primary: #121214;
+  --singr-bg-secondary: #1C1C1E;
+  --singr-text-primary: #F5F5F7;
+  --singr-text-secondary: #AEAEB2;
+  --singr-accent-primary: #FF6B4A;
+  --singr-accent-secondary: #FFB84D;
+  --singr-border: #2C2C2E;
+
+  --glass-bg: rgba(28, 28, 30, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 25px;
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+
+  --f7-theme-color: #FF6B4A;
+  --f7-bars-bg-color: #1c1c1e;
+  --f7-list-bg-color: #1c1c1e;
+  --f7-page-bg-color: #121214;
+}
+
+/* ==========================================================================
+   Utility Classes & Components
+   ========================================================================== */
+
+/* Glass Panels */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.15);
+}
+
+.dark .glass-panel-hover:hover {
+  background: rgba(28, 28, 30, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Glass Buttons */
+.glass-button-primary {
+  background: var(--singr-brand-gradient);
+  color: #FFFFFF;
+  border: none;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(255, 69, 50, 0.3);
+}
+
+.glass-button-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 69, 50, 0.4);
+  opacity: 0.95;
+}
+
+.glass-button-primary:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 10px rgba(255, 69, 50, 0.2);
+}
+
+.glass-button-secondary {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  color: var(--singr-text-primary);
+  border: 1px solid var(--glass-border);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border-radius: 12px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-button-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.dark .glass-button-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Glass Form Inputs */
+.glass-input {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  color: var(--singr-text-primary);
+  font-family: var(--font-sans);
+  border-radius: 12px;
+  padding: 12px 16px;
+  outline: none;
+  transition: all 0.2s ease-in-out;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.glass-input:focus {
+  border-color: var(--singr-accent-primary);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.dark .glass-input:focus {
+  border-color: var(--singr-accent-primary);
+  background: rgba(28, 28, 30, 0.6);
+  box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}

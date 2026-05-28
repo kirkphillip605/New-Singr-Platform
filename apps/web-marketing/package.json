@@ -1,0 +1,13 @@
+{
+  "name": "@singr/web-marketing",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Astro marketing site — singrkaraoke.com",
+  "scripts": {
+    "dev": "echo 'Marketing site placeholder — Astro project will be scaffolded in Phase 7'",
+    "build": "echo 'No build yet'",
+    "lint": "echo 'No lint yet'",
+    "type-check": "echo 'No type-check yet'",
+    "clean": "rm -rf dist .astro"
+  }
+}

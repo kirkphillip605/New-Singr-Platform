@@ -1,0 +1,40 @@
+{
+  "name": "singr-platform",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Multi-tenant karaoke SaaS platform — monorepo",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=@singr/api-node",
+    "dev:host": "turbo run dev --filter=@singr/web-host",
+    "dev:admin": "turbo run dev --filter=@singr/web-admin",
+    "dev:marketing": "turbo run dev --filter=@singr/web-marketing",
+    "dev:singer": "turbo run dev --filter=@singr/mobile-singer",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "type-check": "turbo run type-check",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:migrate": "pnpm --filter @singr/db migrate:dev",
+    "db:generate": "pnpm --filter @singr/db generate",
+    "db:seed": "pnpm --filter @singr/db seed",
+    "db:studio": "pnpm --filter @singr/db studio"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0",
+    "prettier": "^3.5.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0"
+  }
+}

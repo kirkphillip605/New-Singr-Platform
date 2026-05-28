@@ -1,0 +1,164 @@
+# Singr Platform — Docker Compose (Development)
+# Canonical V2 format — no `version:` field needed
+#
+# Port allocation (within valid TCP range 0-65535):
+#   API:        3001 → internal 3001
+#   Marketing:  3010 → internal 80
+#   Host:       3011 → internal 3000
+#   Singer:     3012 → internal 80
+#   Admin:      3013 → internal 3000
+#   Postgres:   5433 → internal 5432
+#   Redis:      6380 → internal 6379
+
+services:
+  # =============================================
+  # Data Layer
+  # =============================================
+
+  db-postgres:
+    image: postgres:16-alpine
+    container_name: singr-db-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: singr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-singr_dev_password}
+      POSTGRES_DB: singr_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U singr -d singr_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  cache-redis:
+    image: redis:7-alpine
+    container_name: singr-cache-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # =============================================
+  # Backend API
+  # =============================================
+
+  api-node:
+    container_name: singr-api-node
+    build:
+      context: .
+      dockerfile: docker/api-node.Dockerfile
+      target: builder
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://singr:${POSTGRES_PASSWORD:-singr_dev_password}@db-postgres:5432/singr_db?schema=public
+      REDIS_URL: redis://cache-redis:6379
+    depends_on:
+      db-postgres:
+        condition: service_healthy
+      cache-redis:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/api-node/src
+          target: /app/apps/api-node/src
+          ignore:
+            - node_modules/
+        - action: sync
+          path: ./packages/shared/src
+          target: /app/packages/shared/src
+        - action: sync
+          path: ./packages/db/src
+          target: /app/packages/db/src
+        - action: rebuild
+          path: ./apps/api-node/package.json
+        - action: rebuild
+          path: ./packages/db/prisma/schema.prisma
+
+  # =============================================
+  # Frontend Containers (Phase 7+)
+  # =============================================
+
+  web-marketing:
+    container_name: singr-web-marketing
+    build:
+      context: .
+      dockerfile: docker/web-marketing.Dockerfile
+    ports:
+      - "3010:80"
+    profiles: ["frontend"]
+
+  web-host:
+    container_name: singr-web-host
+    build:
+      context: .
+      dockerfile: docker/web-host.Dockerfile
+    ports:
+      - "3011:3000"
+    profiles: ["frontend"]
+
+  web-admin:
+    container_name: singr-web-admin
+    build:
+      context: .
+      dockerfile: docker/web-admin.Dockerfile
+    ports:
+      - "3013:3000"
+    profiles: ["frontend"]
+
+  mobile-singer:
+    container_name: singr-mobile-singer
+    build:
+      context: .
+      dockerfile: docker/mobile-singer.Dockerfile
+    ports:
+      - "3012:80"
+    profiles: ["frontend"]
+
+  # =============================================
+  # Debug Tools (--profile debug)
+  # =============================================
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: singr-pgadmin
+    profiles: ["debug"]
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@singr.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      db-postgres:
+        condition: service_healthy
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: singr-redis-commander
+    profiles: ["debug"]
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: singr:cache-redis:6379
+
+volumes:
+  postgres_data:
+    name: singr_postgres_data
+  redis_data:
+    name: singr_redis_data
