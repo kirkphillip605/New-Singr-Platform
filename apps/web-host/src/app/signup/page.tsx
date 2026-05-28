@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, signIn, authClient, useSession } from "@/lib/auth-client";
 import { GlassCard, GlassButton, GlassInput } from "@singr/ui";
 import { Check, Mail, ArrowRight, CreditCard } from "lucide-react";
+import { formatE164 } from "@singr/shared";
 
 interface Tier {
   stripePriceId: string;
@@ -173,12 +174,13 @@ function SignupWizardContent() {
       return;
     }
 
+    const formattedPhone = formatE164(phoneNumber);
     try {
       await (authClient.updateUser as any)({
         name: `${firstName} ${lastName}`.trim(),
         firstName,
         lastName,
-        phoneNumber,
+        phoneNumber: formattedPhone,
         businessName,
       });
 
@@ -403,6 +405,11 @@ function SignupWizardContent() {
                   placeholder="(512) 555-0199"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
+                  onBlur={() => {
+                    if (phoneNumber) {
+                      setPhoneNumber(formatE164(phoneNumber));
+                    }
+                  }}
                   required
                 />
               </div>

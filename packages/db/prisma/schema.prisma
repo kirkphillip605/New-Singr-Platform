@@ -28,6 +28,7 @@ model User {
 
   // Better Auth plugin fields
   twoFactorEnabled Boolean?  @map("two_factor_enabled")
+  phoneNumberVerified Boolean? @map("phone_number_verified")
   role             String?   @map("role")
   banned           Boolean?  @map("banned")
   banReason        String?   @map("ban_reason")

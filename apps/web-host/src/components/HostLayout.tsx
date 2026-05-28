@@ -12,7 +12,8 @@ import {
   ListMusic, 
   Users, 
   CreditCard, 
-  LogOut 
+  LogOut,
+  Settings
 } from "lucide-react";
 
 interface HostLayoutProps {
@@ -91,6 +92,7 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
     { name: "Live Queue", href: "/queue", icon: ListMusic },
     { name: "Host Team", href: "/team", icon: Users },
     { name: "Billing", href: "/billing", icon: CreditCard },
+    { name: "Settings", href: "/settings", icon: Settings },
   ];
 
   if (sessionLoading || checkingOnboarding) {

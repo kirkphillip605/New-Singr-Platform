@@ -140,7 +140,7 @@ export const auth = betterAuth({
               {
                 From: {
                   Email: 'noreply@singrkaraoke.com',
-                  Name: 'Singr Platform',
+                  Name: 'Singr Karaoke',
                 },
                 To: [
                   {
@@ -185,7 +185,7 @@ export const auth = betterAuth({
               {
                 From: {
                   Email: 'noreply@singrkaraoke.com',
-                  Name: 'Singr Platform',
+                  Name: 'Singr Karaoke',
                 },
                 To: [
                   {
@@ -308,7 +308,7 @@ export const auth = betterAuth({
                 {
                   From: {
                     Email: 'noreply@singrkaraoke.com',
-                    Name: 'Singr Platform',
+                    Name: 'Singr Karaoke',
                   },
                   To: [
                     {
@@ -327,7 +327,36 @@ export const auth = betterAuth({
         }
       },
     }),
-    twoFactor(),
+    twoFactor({
+      otpOptions: {
+        sendOTP: async ({ user, otp }) => {
+          const userPhone = (user as any).phoneNumber;
+          if (!userPhone) {
+            console.error('❌ Cannot send 2FA OTP: User does not have a phone number.')
+            return
+          }
+          console.log(`📱 2FA SMS OTP requested for ${userPhone}: ${otp}`)
+          if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+            try {
+              const twilioModule = (await import('twilio')) as any
+              const twilioClient = twilioModule.default || twilioModule
+              const client = twilioClient(
+                process.env.TWILIO_ACCOUNT_SID,
+                process.env.TWILIO_AUTH_TOKEN
+              )
+              await client.messages.create({
+                body: `Your Singr 2FA security code is: ${otp}. Do not share this code.`,
+                to: userPhone,
+                from: process.env.TWILIO_PHONE_NUMBER || '+1234567890',
+              })
+              console.log(`✅ 2FA SMS OTP sent successfully via Twilio to ${userPhone}`)
+            } catch (err) {
+              console.error('❌ Failed to send 2FA SMS OTP via Twilio:', err)
+            }
+          }
+        }
+      }
+    }),
     admin(),
     anonymous(),
     phoneNumber({
