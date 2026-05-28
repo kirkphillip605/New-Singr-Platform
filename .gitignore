@@ -62,7 +62,7 @@ ios/App/DerivedData/
 # Backend API (Express / TypeScript)
 # =========================
 dist/
-lib/
+/lib/
 # If using ts-node or similar caching
 .ts-node/
 
