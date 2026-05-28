@@ -58,7 +58,6 @@ services:
     build:
       context: .
       dockerfile: docker/api-node.Dockerfile
-      target: builder
     ports:
       - "53001:3001"
     env_file:

@@ -30,6 +30,9 @@ COPY . .
 # Generate Prisma client
 RUN pnpm --filter @singr/db generate || true
 
+# Compile TypeScript API server
+RUN pnpm --filter @singr/api-node build
+
 # Stage 3: runner — minimal production image
 FROM node:20-alpine AS runner
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
