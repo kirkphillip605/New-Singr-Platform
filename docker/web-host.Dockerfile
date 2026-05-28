@@ -23,6 +23,9 @@ RUN pnpm install --frozen-lockfile || pnpm install
 # Copy complete source code
 COPY . .
 
+# Copy root .env to apps/web-host/.env for Next.js build configuration
+RUN cp .env apps/web-host/.env || true
+
 # Generate Prisma client
 RUN pnpm --filter @singr/db generate
 
@@ -37,5 +40,5 @@ WORKDIR /app
 # Copy all files from builder
 COPY --from=builder /app .
 
-EXPOSE 3000
+EXPOSE 3011
 CMD ["pnpm", "--filter", "@singr/web-host", "start"]

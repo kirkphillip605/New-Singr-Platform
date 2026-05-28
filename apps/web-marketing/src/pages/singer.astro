@@ -1,6 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { GlassCard, GlassButton } from '@singr/ui';
+
+const singerAppUrl = import.meta.env.PUBLIC_SINGER_APP_URL || "https://app.singrkaraoke.com";
 ---
 
 <Layout title="For Singers — Singr Karaoke">
@@ -63,7 +65,7 @@ import { GlassCard, GlassButton } from '@singr/ui';
         <p class="text-sm text-[var(--singr-text-secondary)] font-sans mb-8 leading-relaxed">
           Join active shows instantly. Anonymous guest profiles are supported so you can join a show and request a song without completing any complex sign-ups.
         </p>
-        <a href="http://localhost:3012/" class="decoration-none">
+        <a href={singerAppUrl} class="decoration-none">
           <GlassButton variant="primary" className="px-8 py-3 text-sm">
             Launch Singer Web App
           </GlassButton>

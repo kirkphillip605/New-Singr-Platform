@@ -23,6 +23,9 @@ RUN pnpm install --frozen-lockfile || pnpm install
 # Copy complete source code
 COPY . .
 
+# Copy root .env to apps/mobile-singer/.env for Vite build configuration
+RUN cp .env apps/mobile-singer/.env || true
+
 # Generate Prisma client
 RUN pnpm --filter @singr/db generate
 

@@ -23,6 +23,9 @@ RUN pnpm install --frozen-lockfile || pnpm install
 # Copy complete source code
 COPY . .
 
+# Copy root .env to apps/web-marketing/.env for Astro build configuration
+RUN cp .env apps/web-marketing/.env || true
+
 # Generate Prisma client
 RUN pnpm --filter @singr/db generate
 

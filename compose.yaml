@@ -109,7 +109,7 @@ services:
       context: .
       dockerfile: docker/web-host.Dockerfile
     ports:
-      - "53011:3000"
+      - "53011:3011"
     profiles: ["frontend"]
 
   web-admin:
@@ -118,7 +118,7 @@ services:
       context: .
       dockerfile: docker/web-admin.Dockerfile
     ports:
-      - "53013:3000"
+      - "53013:3013"
     profiles: ["frontend"]
 
   mobile-singer:

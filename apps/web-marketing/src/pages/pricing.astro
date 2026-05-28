@@ -14,8 +14,11 @@ interface Tier {
 let tiers: Tier[] = [];
 let errorMsg = "";
 
+const hostPortalUrl = import.meta.env.PUBLIC_HOST_PORTAL_URL || "https://host.singrkaraoke.com";
+const apiUrl = import.meta.env.PUBLIC_API_URL || "https://api.singrkaraoke.com";
+
 try {
-  const res = await fetch('http://localhost:3001/api/v1/billing/tiers', {
+  const res = await fetch(`${apiUrl}/api/v1/billing/tiers`, {
     // Provide a short timeout so server-side rendering doesn't hang indefinitely if API is down
     signal: AbortSignal.timeout(2000)
   });
@@ -113,7 +116,7 @@ const formatPrice = (cents: number) => {
               )}
             </ul>
           </div>
-          <a href={`http://localhost:3011/login?tier=${tier.stripePriceId}`} class="decoration-none w-full">
+          <a href={`${hostPortalUrl}/login?tier=${tier.stripePriceId}`} class="decoration-none w-full">
             <GlassButton variant={tier.name.includes("Premium") ? "primary" : "secondary"} className="w-full py-3 text-sm">
               Subscribe as Host
             </GlassButton>

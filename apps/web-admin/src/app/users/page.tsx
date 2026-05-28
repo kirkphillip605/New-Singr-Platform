@@ -56,9 +56,8 @@ export default function UserManagementPage() {
   };
 
   const handleImpersonate = (email: string) => {
-    // Impersonate endpoint POST /api/v1/admin/impersonate
-    // Redirect to Host Dashboard under mock impersonation session
-    window.location.href = `http://localhost:3011/dashboard?impersonate=${email}`;
+    const hostPortalUrl = process.env.NEXT_PUBLIC_HOST_PORTAL_URL || "https://host.singrkaraoke.com";
+    window.location.href = `${hostPortalUrl}/dashboard?impersonate=${email}`;
   };
 
   return (

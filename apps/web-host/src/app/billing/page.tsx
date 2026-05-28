@@ -7,8 +7,8 @@ import { CreditCard, Check, ShieldCheck } from "lucide-react";
 
 export default function BillingPage() {
   const handleCheckout = () => {
-    // Redirects to Stripe checkout simulation
-    window.location.href = "http://localhost:3001/api/v1/billing/checkout?priceId=price_sandbox_premium";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.singrkaraoke.com";
+    window.location.href = `${apiUrl}/api/v1/billing/checkout?priceId=price_sandbox_premium`;
   };
 
   return (

@@ -1,5 +1,6 @@
 ---
 import '@singr/ui/styles';
+import '../styles/globals.css';
 
 interface Props {
   title: string;
@@ -12,6 +13,9 @@ const {
   description = "Singr Karaoke Platform — Multi-tenant real-time karaoke software for venues, hosts, and singers.",
   ogImage = "/images/og-default.jpg"
 } = Astro.props;
+
+const hostPortalUrl = import.meta.env.PUBLIC_HOST_PORTAL_URL || "https://host.singrkaraoke.com";
+const singerAppUrl = import.meta.env.PUBLIC_SINGER_APP_URL || "https://app.singrkaraoke.com";
 ---
 
 <!doctype html>
@@ -79,8 +83,8 @@ const {
           <a href="/pricing" class="text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] transition-colors font-medium decoration-none text-sm">Pricing</a>
         </nav>
         <div class="flex items-center gap-4">
-          <a href="http://localhost:3011/login" class="glass-button-secondary py-2 px-4 text-xs font-semibold rounded-lg decoration-none">Host Portal</a>
-          <a href="http://localhost:3012/" class="glass-button-primary py-2 px-4 text-xs font-semibold rounded-lg decoration-none">Singer App</a>
+          <a href={`${hostPortalUrl}/login`} class="glass-button-secondary py-2 px-4 text-xs font-semibold rounded-lg decoration-none">Host Portal</a>
+          <a href={singerAppUrl} class="glass-button-primary py-2 px-4 text-xs font-semibold rounded-lg decoration-none">Singer App</a>
         </div>
       </div>
     </header>
@@ -111,8 +115,8 @@ const {
           <h5 class="text-sm font-semibold text-[var(--singr-text-primary)] mb-4">Platform</h5>
           <ul class="list-none p-0 m-0 flex flex-col gap-2">
             <li><a href="/pricing" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Pricing Tiers</a></li>
-            <li><a href="http://localhost:3011/" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Host Console</a></li>
-            <li><a href="http://localhost:3012/" class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Singer Web App</a></li>
+            <li><a href={hostPortalUrl} class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Host Console</a></li>
+            <li><a href={singerAppUrl} class="text-xs text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] decoration-none transition-colors">Singer Web App</a></li>
           </ul>
         </div>
         <div>

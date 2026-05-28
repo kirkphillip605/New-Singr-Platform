@@ -1,6 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { GlassCard, GlassButton } from '@singr/ui';
+
+const hostPortalUrl = import.meta.env.PUBLIC_HOST_PORTAL_URL || "https://host.singrkaraoke.com";
 ---
 
 <Layout title="For Hosts — Singr Karaoke">
@@ -44,7 +46,7 @@ import { GlassCard, GlassButton } from '@singr/ui';
         <p class="text-sm text-[var(--singr-text-secondary)] font-sans mb-8 leading-relaxed">
           Ready to try the most sophisticated karaoke host portal on the market? Join our Stripe sandbox trial program and start hosting tonight.
         </p>
-        <a href="http://localhost:3011/login" class="decoration-none">
+        <a href={`${hostPortalUrl}/login`} class="decoration-none">
           <GlassButton variant="primary" className="px-8 py-3 text-sm">
             Access Host Portal
           </GlassButton>
