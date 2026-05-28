@@ -50,8 +50,8 @@ async function main() {
 
   // 3. Create Users
   console.log('👤 Seeding Users...')
-  // bcrypt hash of "password123"
-  const defaultPasswordHash = '$2b$10$zR8W276xRszvQn09cW4pA.b0jC19a/589ZpE5iYmKqF798o6b4/dK'
+  // Better Auth scrypt hash of "password123"
+  const defaultPasswordHash = 'e99e575d1f02b51f067b8202aa701479:e1c60af2b8b2d26c1b8fd34e1567b54a48194ac265f9e795f6026fbccb1165fa79b557cae60fec4aec99e9ae5569dd74ced183c857c641719016a0bfdf36b01b'
 
   const admin = await prisma.user.create({
     data: {

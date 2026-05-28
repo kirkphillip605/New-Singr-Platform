@@ -2,31 +2,54 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "@/lib/auth-client";
+import { signIn, signUp } from "@/lib/auth-client";
 import { GlassCard, GlassButton, GlassInput } from "@singr/ui";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const res = await signIn.email({
-        email,
-        password,
-      });
+      if (isSignUp) {
+        const res = await signUp.email({
+          email,
+          password,
+          name: `${firstName} ${lastName}`.trim(),
+          firstName,
+          lastName,
+          roles: ["host", "singer"],
+          businessName: businessName || undefined,
+          callbackURL: "/dashboard"
+        } as any);
 
-      if (res?.error) {
-        setError(res.error.message || "Failed to sign in.");
+        if (res?.error) {
+          setError(res.error.message || "Failed to sign up.");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
-        router.push("/dashboard");
+        const res = await signIn.email({
+          email,
+          password,
+        });
+
+        if (res?.error) {
+          setError(res.error.message || "Failed to sign in.");
+        } else {
+          router.push("/dashboard");
+        }
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
@@ -43,9 +66,14 @@ export default function LoginPage() {
         }} />
         
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-white mb-2">Host Portal</h1>
+          <h1 className="text-3xl font-extrabold text-white mb-2">
+            {isSignUp ? "Create Host Account" : "Host Portal"}
+          </h1>
           <p className="text-sm text-[var(--singr-text-secondary)] font-sans">
-            Sign in with your host credentials to access your venues, shows, and request queue.
+            {isSignUp 
+              ? "Register a new host console credentials to start managing venues and queues." 
+              : "Sign in with your host credentials to access your venues, shows, and request queue."
+            }
           </p>
         </div>
 
@@ -55,7 +83,44 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-5">
+        <form onSubmit={handleAuth} className="flex flex-col gap-5">
+          {isSignUp && (
+            <>
+              <div className="flex gap-4">
+                <div className="flex flex-col gap-2 w-1/2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[var(--singr-text-secondary)] font-sans">First Name</label>
+                  <GlassInput
+                    type="text"
+                    placeholder="John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-2 w-1/2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[var(--singr-text-secondary)] font-sans">Last Name</label>
+                  <GlassInput
+                    type="text"
+                    placeholder="Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[var(--singr-text-secondary)] font-sans">Business/KJ Name</label>
+                <GlassInput
+                  type="text"
+                  placeholder="e.g. Johnny Karaoke Shows"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-[var(--singr-text-secondary)] font-sans">Email Address</label>
             <GlassInput
@@ -70,7 +135,9 @@ export default function LoginPage() {
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center">
               <label className="text-xs font-semibold uppercase tracking-wider text-[var(--singr-text-secondary)] font-sans">Password</label>
-              <a href="#" className="text-xs text-[var(--singr-accent-primary)] hover:underline decoration-none font-sans">Forgot?</a>
+              {!isSignUp && (
+                <a href="#" className="text-xs text-[var(--singr-accent-primary)] hover:underline decoration-none font-sans">Forgot?</a>
+              )}
             </div>
             <GlassInput
               type="password"
@@ -82,9 +149,38 @@ export default function LoginPage() {
           </div>
 
           <GlassButton type="submit" variant="primary" className="w-full py-3 mt-2 text-sm font-bold" disabled={loading}>
-            {loading ? "Authenticating session..." : "Sign In to Console"}
+            {loading 
+              ? (isSignUp ? "Creating account..." : "Authenticating session...") 
+              : (isSignUp ? "Sign Up as Host" : "Sign In to Console")
+            }
           </GlassButton>
         </form>
+
+        <div className="text-center mt-6 text-xs text-[var(--singr-text-secondary)] font-sans">
+          {isSignUp ? (
+            <p>
+              Already have an account?{" "}
+              <button 
+                type="button" 
+                onClick={() => { setIsSignUp(false); setError(""); }}
+                className="text-[var(--singr-accent-primary)] hover:underline bg-transparent border-none cursor-pointer p-0 font-semibold"
+              >
+                Sign In
+              </button>
+            </p>
+          ) : (
+            <p>
+              Don't have an account?{" "}
+              <button 
+                type="button" 
+                onClick={() => { setIsSignUp(true); setError(""); }}
+                className="text-[var(--singr-accent-primary)] hover:underline bg-transparent border-none cursor-pointer p-0 font-semibold"
+              >
+                Sign Up
+              </button>
+            </p>
+          )}
+        </div>
 
         <div className="border-t border-[var(--singr-border)] my-6"></div>
 
@@ -94,7 +190,7 @@ export default function LoginPage() {
             variant="secondary"
             className="w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
           >
-            <span>🌐</span> Sign In with Google
+            <span>🌐</span> {isSignUp ? "Sign Up with Google" : "Sign In with Google"}
           </GlassButton>
           
           <GlassButton
@@ -102,7 +198,7 @@ export default function LoginPage() {
             variant="secondary"
             className="w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
           >
-            <span>🍎</span> Sign In with Apple
+            <span>🍎</span> {isSignUp ? "Sign Up with Apple" : "Sign In with Apple"}
           </GlassButton>
         </div>
       </GlassCard>
