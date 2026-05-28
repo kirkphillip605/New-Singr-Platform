@@ -19,7 +19,7 @@ services:
     image: postgres:16-alpine
     container_name: singr-db-postgres
     ports:
-      - "5433:5432"
+      - "55432:5432"
     environment:
       POSTGRES_USER: singr
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-singr_dev_password}
@@ -38,7 +38,7 @@ services:
     image: redis:7-alpine
     container_name: singr-cache-redis
     ports:
-      - "6380:6379"
+      - "56379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -60,7 +60,7 @@ services:
       dockerfile: docker/api-node.Dockerfile
       target: builder
     ports:
-      - "3001:3001"
+      - "53001:3001"
     env_file:
       - .env
     environment:
@@ -101,7 +101,7 @@ services:
       context: .
       dockerfile: docker/web-marketing.Dockerfile
     ports:
-      - "3010:80"
+      - "53010:80"
     profiles: ["frontend"]
 
   web-host:
@@ -110,7 +110,7 @@ services:
       context: .
       dockerfile: docker/web-host.Dockerfile
     ports:
-      - "3011:3000"
+      - "53011:3000"
     profiles: ["frontend"]
 
   web-admin:
@@ -119,7 +119,7 @@ services:
       context: .
       dockerfile: docker/web-admin.Dockerfile
     ports:
-      - "3013:3000"
+      - "53013:3000"
     profiles: ["frontend"]
 
   mobile-singer:
@@ -128,7 +128,7 @@ services:
       context: .
       dockerfile: docker/mobile-singer.Dockerfile
     ports:
-      - "3012:80"
+      - "53012:80"
     profiles: ["frontend"]
 
   # =============================================
