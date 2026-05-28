@@ -207,4 +207,48 @@ router.delete('/favorites/:id', requireAuth, async (req: AuthenticatedRequest, r
   }
 })
 
+// 5. GET /v1/users/profile — Retrieve detailed user profile including hostProfile status
+router.get('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: req.user.id,
+      },
+      include: {
+        hostProfile: true,
+      },
+    })
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        roles: user.roles,
+        businessName: user.businessName,
+        singerAbout: user.singerAbout,
+        subscriptionStatus: user.hostProfile?.subscriptionStatus || 'inactive',
+      },
+    })
+  } catch (error: any) {
+    console.error('Error fetching user profile:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve profile.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
 export default router

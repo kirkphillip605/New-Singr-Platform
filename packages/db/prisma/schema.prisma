@@ -32,6 +32,7 @@ model User {
   banned           Boolean?  @map("banned")
   banReason        String?   @map("ban_reason")
   banExpires       DateTime? @map("ban_expires") @db.Timestamptz
+  stripeCustomerId String?   @map("stripe_customer_id")
 
   // Better Auth relations
   sessions  Session[]
@@ -333,4 +334,28 @@ model Favorite {
 
   @@unique([usersId, artist, title])
   @@map("favorites")
+}
+
+model Subscription {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @map("subscriptions_id") @db.Uuid
+  plan                 String
+  referenceId          String    @map("reference_id")
+  stripeCustomerId     String?   @map("stripe_customer_id")
+  stripeSubscriptionId String?   @map("stripe_subscription_id")
+  status               String
+  periodStart          DateTime? @map("period_start") @db.Timestamptz
+  periodEnd            DateTime? @map("period_end") @db.Timestamptz
+  trialStart           DateTime? @map("trial_start") @db.Timestamptz
+  trialEnd             DateTime? @map("trial_end") @db.Timestamptz
+  cancelAtPeriodEnd    Boolean?  @map("cancel_at_period_end")
+  cancelAt             DateTime? @map("cancel_at") @db.Timestamptz
+  canceledAt           DateTime? @map("canceled_at") @db.Timestamptz
+  endedAt              DateTime? @map("ended_at") @db.Timestamptz
+  seats                Int?
+  billingInterval      String?   @map("billing_interval")
+  stripeScheduleId     String?   @map("stripe_schedule_id")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("subscriptions")
 }

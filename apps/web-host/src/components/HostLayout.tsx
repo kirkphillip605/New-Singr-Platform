@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
 import { GlassButton } from "@singr/ui";
@@ -23,7 +23,60 @@ interface HostLayoutProps {
 export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, isPending: sessionLoading } = useSession();
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+
+  useEffect(() => {
+    if (sessionLoading) return;
+
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+
+    // Validate onboarding state (email, profile details, and stripe subscription)
+    const checkOnboarding = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        const res = await fetch(`${apiUrl}/api/v1/users/profile`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+
+        if (data.success && data.user) {
+          const user = data.user;
+
+          // Step 1: Email Verification
+          if (!user.emailVerified) {
+            router.push("/signup?step=1");
+            return;
+          }
+
+          // Step 2: Complete Profile
+          if (!user.firstName || !user.lastName || !user.phoneNumber || !user.businessName) {
+            router.push("/signup?step=2");
+            return;
+          }
+
+          // Step 3: Subscription Status
+          if (user.subscriptionStatus !== "active") {
+            router.push("/signup?step=3");
+            return;
+          }
+
+          setCheckingOnboarding(false);
+        } else {
+          router.push("/login");
+        }
+      } catch (err) {
+        console.error("Failed to fetch onboarding profile details:", err);
+        // Fallback during local development if API is offline
+        setCheckingOnboarding(false);
+      }
+    };
+
+    checkOnboarding();
+  }, [session, sessionLoading, router]);
 
   const handleLogout = async () => {
     await signOut();
@@ -39,6 +92,17 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
     { name: "Host Team", href: "/team", icon: Users },
     { name: "Billing", href: "/billing", icon: CreditCard },
   ];
+
+  if (sessionLoading || checkingOnboarding) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--singr-bg-primary)] text-[var(--singr-text-secondary)] font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-2 border-[var(--singr-accent-primary)]/20 border-t-[var(--singr-accent-primary)] animate-spin"></div>
+          <p className="text-xs tracking-wider uppercase font-bold text-[var(--singr-text-secondary)]">Validating Console Ledger...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[var(--singr-bg-primary)]">

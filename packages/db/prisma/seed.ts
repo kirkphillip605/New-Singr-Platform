@@ -1,4 +1,40 @@
 import { rawPrisma as prisma } from '../src/client.js'
+import { betterAuth } from 'better-auth'
+import { prismaAdapter } from 'better-auth/adapters/prisma'
+import crypto from 'crypto'
+
+const auth = betterAuth({
+  database: prismaAdapter(prisma, {
+    provider: 'postgresql',
+  }),
+  secret: process.env.BETTER_AUTH_SECRET || 'dev_secret_replace_in_production_32chars_min',
+  advanced: {
+    database: {
+      generateId: () => crypto.randomUUID(),
+    },
+  },
+  emailAndPassword: {
+    enabled: true,
+  },
+  user: {
+    fields: {
+      name: 'firstName',
+    },
+    additionalFields: {
+      roles: { type: 'string[]', required: false, defaultValue: ['singer'] },
+      firstName: { type: 'string', required: false },
+      lastName: { type: 'string', required: false },
+      phoneNumber: { type: 'string', required: false },
+      isAnonymous: { type: 'boolean', required: false, defaultValue: false },
+      businessName: { type: 'string', required: false },
+      businessLogo: { type: 'string', required: false },
+      businessAbout: { type: 'string', required: false },
+      singerAbout: { type: 'string', required: false },
+      deletedAt: { type: 'date', required: false },
+      deletedBy: { type: 'string', required: false },
+    },
+  },
+})
 
 async function main() {
   console.log('🌱 Starting database seeding...')
@@ -23,82 +59,112 @@ async function main() {
 
   // 2. Create Subscription Tiers
   console.log('💳 Seeding Subscription Tiers...')
-  const pricePro = 'price_1RP51fEHv8jD9HNKrNZ75uvC'
-  const pricePremium = 'price_1RP51fEHv8jD9HNKKUJVK37N'
+  const priceProMonthly = 'price_1TOBKUEHv8jD9HNKuH9i3sEy'
+  const pricePro6Month = 'price_1TOBKVEHv8jD9HNKcXvrP2Po'
+  const priceProAnnual = 'price_1TOBKVEHv8jD9HNKK0nTrlRV'
 
-  const tierPro = await prisma.subscriptionTier.create({
+  const tierProMonthly = await prisma.subscriptionTier.create({
     data: {
-      stripePriceId: pricePro,
-      name: 'Singr Pro',
-      priceCents: 4900,
+      stripePriceId: priceProMonthly,
+      name: 'Singr Connect Monthly',
+      priceCents: 1500,
       interval: 'month',
-      features: { maxVenues: 5, maxSystems: 2, support: 'email' },
+      features: { maxVenues: 2, maxSystems: 1, support: 'email', trialDays: 7 },
       active: true,
     },
   })
 
-  const tierPremium = await prisma.subscriptionTier.create({
+  const tierPro6Month = await prisma.subscriptionTier.create({
     data: {
-      stripePriceId: pricePremium,
-      name: 'Singr Premium',
-      priceCents: 9900,
-      interval: 'month',
-      features: { maxVenues: 50, maxSystems: 10, support: 'priority' },
+      stripePriceId: pricePro6Month,
+      name: 'Singr Connect 6-Month',
+      priceCents: 7500,
+      interval: '6_months',
+      features: { maxVenues: 5, maxSystems: 2, support: 'email', trialDays: 7 },
+      active: true,
+    },
+  })
+
+  const tierProAnnual = await prisma.subscriptionTier.create({
+    data: {
+      stripePriceId: priceProAnnual,
+      name: 'Singr Connect Annual',
+      priceCents: 13500,
+      interval: 'year',
+      features: { maxVenues: 50, maxSystems: 10, support: 'priority', trialDays: 14 },
       active: true,
     },
   })
 
   // 3. Create Users
-  console.log('👤 Seeding Users...')
-  // Better Auth scrypt hash of "password123"
-  const defaultPasswordHash = 'e99e575d1f02b51f067b8202aa701479:e1c60af2b8b2d26c1b8fd34e1567b54a48194ac265f9e795f6026fbccb1165fa79b557cae60fec4aec99e9ae5569dd74ced183c857c641719016a0bfdf36b01b'
+  console.log('👤 Seeding Users via Better Auth programmatic API...')
 
-  const admin = await prisma.user.create({
-    data: {
+  const adminRes = await auth.api.signUpEmail({
+    headers: new Headers(),
+    body: {
       email: 'admin@singrkaraoke.com',
-      password: defaultPasswordHash,
-      emailVerified: true,
-      roles: ['global_admin'],
+      password: 'password123',
+      name: 'System Administrator',
       firstName: 'System',
       lastName: 'Administrator',
+      roles: ['global_admin'],
     },
   })
+  const admin = await prisma.user.update({
+    where: { id: adminRes.user.id },
+    data: { emailVerified: true }
+  })
 
-  const host = await prisma.user.create({
-    data: {
+  const hostRes = await auth.api.signUpEmail({
+    headers: new Headers(),
+    body: {
       email: 'host@singrkaraoke.com',
-      password: defaultPasswordHash,
-      emailVerified: true,
-      roles: ['host', 'singer'],
+      password: 'password123',
+      name: 'Johnny Host',
       firstName: 'Johnny',
       lastName: 'Host',
+      roles: ['host', 'singer'],
       businessName: 'Johnny Karaoke Entertainment',
       businessAbout: 'Providing the finest karaoke hosting services in the tri-state area since 2012.',
     },
   })
+  const host = await prisma.user.update({
+    where: { id: hostRes.user.id },
+    data: { emailVerified: true }
+  })
 
-  const singer1 = await prisma.user.create({
-    data: {
+  const singer1Res = await auth.api.signUpEmail({
+    headers: new Headers(),
+    body: {
       email: 'singer1@singrkaraoke.com',
-      password: defaultPasswordHash,
-      emailVerified: true,
-      roles: ['singer'],
+      password: 'password123',
+      name: 'Alice Singer',
       firstName: 'Alice',
       lastName: 'Singer',
+      roles: ['singer'],
       singerAbout: 'Lead singer in a local indie band. Loves 80s synth-pop and power ballads.',
     },
   })
+  const singer1 = await prisma.user.update({
+    where: { id: singer1Res.user.id },
+    data: { emailVerified: true }
+  })
 
-  const singer2 = await prisma.user.create({
-    data: {
+  const singer2Res = await auth.api.signUpEmail({
+    headers: new Headers(),
+    body: {
       email: 'singer2@singrkaraoke.com',
-      password: defaultPasswordHash,
-      emailVerified: true,
-      roles: ['singer'],
+      password: 'password123',
+      name: 'Bob Vocalist',
       firstName: 'Bob',
       lastName: 'Vocalist',
+      roles: ['singer'],
       singerAbout: 'Shower singer extraordinaire. Mostly sings classic rock.',
     },
+  })
+  const singer2 = await prisma.user.update({
+    where: { id: singer2Res.user.id },
+    data: { emailVerified: true }
   })
 
   // 4. Create Host Profile
