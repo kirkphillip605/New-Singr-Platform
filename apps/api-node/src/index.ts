@@ -6,10 +6,24 @@ import { fileURLToPath } from 'url'
 import pino from 'pino'
 import { prisma } from '@singr/db'
 import { redis } from './lib/redis.js'
+import { createServer } from 'http'
+import { initWebSocketServer } from './ws/ws-server.js'
+import './workers/song-sync.worker.js'
 import authRouter from './routes/auth.routes.js'
 import legacyRouter from './routes/legacy/okj-adapter.routes.js'
 import { errorHandler } from './middleware/error-handler.middleware.js'
 import { rateLimiter } from './middleware/rate-limit.middleware.js'
+
+// Modern API v1 Routers (Phase 5)
+import showsRouter from './routes/v1/shows.routes.js'
+import requestsRouter from './routes/v1/requests.routes.js'
+import usersRouter from './routes/v1/users.routes.js'
+import venuesRouter from './routes/v1/venues.routes.js'
+import systemsRouter from './routes/v1/systems.routes.js'
+import adminRouter from './routes/v1/admin.routes.js'
+import showsManagementRouter from './routes/v1/shows-management.routes.js'
+import teamsRouter from './routes/v1/teams.routes.js'
+import billingRouter from './routes/v1/billing.routes.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -58,8 +72,14 @@ app.use(
   })
 )
 
-// Body parsers
-app.use(express.json())
+// Body parsers with raw body preservation for Stripe webhook signature verification
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf
+    },
+  })
+)
 app.use(express.urlencoded({ extended: true }))
 
 // Request Logging Middleware
@@ -113,21 +133,25 @@ app.use('/api/auth', authRouter)
 // Legacy OpenKJ Adapter Routes (Phase 4)
 app.use('/api/v1/legacy', legacyRouter)
 
-// Placeholder for Modern API endpoints (Phase 5)
-app.use('/api/v1', (req, res, next) => {
-  if (req.path !== '/health') {
-    return res.status(503).json({
-      success: false,
-      message: 'Modern API routes are currently being deployed (Phase 5).',
-    })
-  }
-  next()
-})
+// Modern API v1 Routes (Phase 5)
+app.use('/api/v1/shows', showsRouter)
+app.use('/api/v1/shows', showsManagementRouter)
+app.use('/api/v1/requests', requestsRouter)
+app.use('/api/v1/users', usersRouter)
+app.use('/api/v1/venues', venuesRouter)
+app.use('/api/v1/systems', systemsRouter)
+app.use('/api/v1/admin', adminRouter)
+app.use('/api/v1/teams', teamsRouter)
+app.use('/api/v1/billing', billingRouter)
 
 // Global Error Handler
 app.use(errorHandler)
 
+// Create HTTP server and attach WebSocket server
+const server = createServer(app)
+initWebSocketServer(server)
+
 // Start Server
-app.listen(port, () => {
+server.listen(port, () => {
   logger.info(`🎤 Singr API server running on port ${port}`)
 })

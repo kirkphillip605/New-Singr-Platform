@@ -1,10 +1,5 @@
 import { prisma } from '@singr/db'
-import pino from 'pino'
-
-const logger = pino()
-
-// Store debounce timeouts in memory, mapped by system ID
-const debounceTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+import { triggerSongSyncDebounce } from '../../workers/song-sync.queue.js'
 
 export async function handleCommand(command: string, data: any, system: any): Promise<any> {
   switch (command) {
@@ -322,7 +317,7 @@ export async function handleCommand(command: string, data: any, system: any): Pr
         })),
       })
 
-      triggerShadowSwapDebounce(system.id)
+      await triggerSongSyncDebounce(system.id)
 
       const lastSong = songs[songs.length - 1]
 
@@ -341,61 +336,4 @@ export async function handleCommand(command: string, data: any, system: any): Pr
   }
 }
 
-function triggerShadowSwapDebounce(systemId: string) {
-  const existingTimeout = debounceTimeouts.get(systemId)
-  if (existingTimeout) {
-    clearTimeout(existingTimeout)
-  }
 
-  const timeout = setTimeout(async () => {
-    logger.info(`🔄 Running shadow-swap transaction for system: ${systemId}`)
-    try {
-      await prisma.$transaction(async (tx) => {
-        await tx.song.deleteMany({
-          where: { systemsId: systemId },
-        })
-
-        const shadowSongs = await tx.songShadow.findMany({
-          where: { systemsId: systemId },
-        })
-
-        await tx.song.createMany({
-          data: shadowSongs.map((shadow) => ({
-            systemsId: systemId,
-            artist: shadow.artist,
-            title: shadow.title,
-          })),
-        })
-
-        await tx.songShadow.deleteMany({
-          where: { systemsId: systemId },
-        })
-
-        const activeShow = await tx.show.findFirst({
-          where: {
-            activeSystemsId: systemId,
-            deletedAt: null,
-          },
-        })
-
-        if (activeShow) {
-          await tx.show.update({
-            where: { id: activeShow.id },
-            data: {
-              isAccepting: true,
-              serialCounter: { increment: 1 },
-            },
-          })
-          logger.info(`✅ Show ${activeShow.slug} is now accepting requests with incremented serial`)
-        }
-      })
-      logger.info(`✅ Shadow-swap completed successfully for system: ${systemId}`)
-    } catch (error) {
-      logger.error(error instanceof Error ? error : new Error(String(error)), `❌ Shadow-swap failed for system ${systemId}`)
-    } finally {
-      debounceTimeouts.delete(systemId)
-    }
-  }, 5000)
-
-  debounceTimeouts.set(systemId, timeout)
-}
