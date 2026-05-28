@@ -30,9 +30,6 @@ COPY . .
 # Generate Prisma client
 RUN pnpm --filter @singr/db generate || true
 
-# Compile TypeScript API server
-RUN pnpm --filter @singr/api-node build
-
 # Stage 3: runner — minimal production image
 FROM node:20-alpine AS runner
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
@@ -47,4 +44,4 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD wget -q --spider http://localhost:3001/health || exit 1
 
-CMD ["node", "apps/api-node/dist/index.js"]
+CMD ["npx", "tsx", "apps/api-node/src/index.ts"]
