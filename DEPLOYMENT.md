@@ -45,11 +45,17 @@ Create a `.env` file in the project root of your server. This file defines all s
 Run these terminal commands on your production server from the project root folder:
 
 ### Step 1: Build & Start Services
-Build all Dockerfiles and spin up backend API, databases, Redis, and all frontend web portals in detached background mode:
+Build all Dockerfiles and spin up backend API, databases, Redis, and all frontend web portals in detached background mode.
+
+If your version of Docker Compose is older and throws `unknown flag: --profile`, use the **highly compatible direct service list** instead:
 ```bash
-docker compose up -d --build --profile frontend
+docker compose up -d --build api-node web-marketing web-host web-admin mobile-singer
 ```
-*Note: The `--profile frontend` is required because the marketing, host, admin, and mobile singer portals are scoped under the `frontend` profile inside `compose.yaml`.*
+
+Alternatively, you can run it using the `COMPOSE_PROFILES` environment variable:
+```bash
+COMPOSE_PROFILES=frontend docker compose up -d --build
+```
 
 ### Step 2: Confirm Container Health
 List all container statuses to ensure they are healthy:
