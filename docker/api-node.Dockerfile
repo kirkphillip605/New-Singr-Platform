@@ -17,6 +17,9 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/config/package.json ./packages/config/
 COPY packages/ui/package.json ./packages/ui/
 
+# Configure pnpm to hoist node_modules (creates standard files instead of store symlinks)
+RUN pnpm config set node-linker hoisted
+
 # Install all dependencies
 RUN pnpm install --frozen-lockfile || pnpm install
 
