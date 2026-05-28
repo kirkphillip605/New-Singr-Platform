@@ -38,6 +38,16 @@ export const auth = betterAuth({
 
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: [
+    'http://localhost:3010',
+    'http://localhost:3011',
+    'http://localhost:3012',
+    'http://localhost:3013',
+    'https://singrkaraoke.com',
+    'https://host.singrkaraoke.com',
+    'https://admin.singrkaraoke.com',
+    'https://app.singrkaraoke.com',
+  ],
 
   advanced: {
     database: {
