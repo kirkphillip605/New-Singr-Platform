@@ -7,6 +7,7 @@ import pino from 'pino'
 import { prisma } from '@singr/db'
 import { redis } from './lib/redis.js'
 import authRouter from './routes/auth.routes.js'
+import legacyRouter from './routes/legacy/okj-adapter.routes.js'
 import { errorHandler } from './middleware/error-handler.middleware.js'
 import { rateLimiter } from './middleware/rate-limit.middleware.js'
 
@@ -109,17 +110,8 @@ app.get('/health', async (_req, res) => {
 // Better Auth endpoints
 app.use('/api/auth', authRouter)
 
-// Placeholder for Legacy OpenKJ Adapter (Phase 4)
-app.use('/api/v1/legacy', (req, res, next) => {
-  // Pass through if legacy handler is not registered yet
-  if (req.path === '/okj/api.php') {
-    return res.status(503).json({
-      success: false,
-      message: 'Legacy OpenKJ Adapter is currently being deployed (Phase 4).',
-    })
-  }
-  next()
-})
+// Legacy OpenKJ Adapter Routes (Phase 4)
+app.use('/api/v1/legacy', legacyRouter)
 
 // Placeholder for Modern API endpoints (Phase 5)
 app.use('/api/v1', (req, res, next) => {
