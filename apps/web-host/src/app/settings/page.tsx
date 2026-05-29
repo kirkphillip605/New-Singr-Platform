@@ -12,13 +12,14 @@ import {
   Smartphone, 
   AlertTriangle, 
   ShieldCheck, 
-  Loader2 
+  Loader2,
+  Link
 } from "lucide-react";
 
 export default function HostSettingsPage() {
   const { data: session, isPending: sessionLoading, refetch } = useSession();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-  const [activeTab, setActiveTab] = useState<"profile" | "security">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "security" | "linked">("profile");
   
   // Profile states
   const [firstName, setFirstName] = useState("");
@@ -36,6 +37,9 @@ export default function HostSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
 
+  // Linked accounts states
+  const [accounts, setAccounts] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -50,8 +54,20 @@ export default function HostSettingsPage() {
       setPhoneNumber(user.phoneNumber || "");
       setPhoneVerified(!!user.phoneNumberVerified);
       setTwoFactorEnabled(!!user.twoFactorEnabled);
+      fetchAccounts();
     }
   }, [session]);
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await authClient.listAccounts();
+      if (res?.data) {
+        setAccounts(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch accounts:", err);
+    }
+  };
 
   const handlePhoneBlur = () => {
     if (phoneNumber) {
@@ -126,7 +142,6 @@ export default function HostSettingsPage() {
     setPhoneNumber(formattedPhone);
 
     try {
-      // better-auth phone number plugin: sendOtp
       const res = await authClient.phoneNumber.sendOtp({
         phoneNumber: formattedPhone,
       });
@@ -159,7 +174,6 @@ export default function HostSettingsPage() {
 
     try {
       const formattedPhone = formatE164(phoneNumber);
-      // better-auth phone number plugin: verify
       const res = await authClient.phoneNumber.verify({
         phoneNumber: formattedPhone,
         code: otpCode,
@@ -174,8 +188,6 @@ export default function HostSettingsPage() {
         setIsVerifyingPhone(false);
         setOtpCode("");
         setSuccess("Phone number verified and linked successfully!");
-        
-        // Refresh session
         await authClient.getSession();
       }
     } catch (err: any) {
@@ -200,7 +212,6 @@ export default function HostSettingsPage() {
 
     try {
       if (twoFactorEnabled) {
-        // Disable 2FA
         const res = await authClient.twoFactor.disable({
           password: confirmPassword,
         });
@@ -215,7 +226,6 @@ export default function HostSettingsPage() {
           await authClient.getSession();
         }
       } else {
-        // Enable 2FA
         const res = await authClient.twoFactor.enable({
           password: confirmPassword,
         });
@@ -232,6 +242,42 @@ export default function HostSettingsPage() {
       }
     } catch (err: any) {
       setError(err.message || "Authentication failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Social account linking/unlinking
+  const handleLinkGoogle = async () => {
+    setError("");
+    setSuccess("");
+    try {
+      await authClient.linkSocial({
+        provider: "google",
+        callbackURL: window.location.href,
+      });
+    } catch (err: any) {
+      setError(err.message || "Failed to initiate Google link.");
+    }
+  };
+
+  const handleUnlinkAccount = async (providerId: string) => {
+    if (!confirm(`Are you sure you want to unlink your ${providerId} account?`)) return;
+    setError("");
+    setSuccess("");
+    setLoading(true);
+    try {
+      const res = await authClient.unlinkAccount({
+        providerId,
+      });
+      if (res.error) {
+        setError(res.error.message || "Failed to unlink account.");
+      } else {
+        setSuccess(`Successfully unlinked ${providerId} account.`);
+        await fetchAccounts();
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to unlink account.");
     } finally {
       setLoading(false);
     }
@@ -286,6 +332,16 @@ export default function HostSettingsPage() {
           >
             <Lock className="w-4 h-4" /> Security & 2FA
           </button>
+          <button
+            onClick={() => { setActiveTab("linked"); setError(""); setSuccess(""); }}
+            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
+              activeTab === "linked" 
+                ? "border-[var(--singr-accent-primary)] text-white" 
+                : "border-transparent text-[var(--singr-text-secondary)] hover:text-white"
+            }`}
+          >
+            <Link className="w-4 h-4" /> Linked Accounts
+          </button>
         </div>
 
         {/* PROFILE TAB */}
@@ -325,6 +381,7 @@ export default function HostSettingsPage() {
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     required
+                    // Make sure it doesn't block updates
                   />
                 </div>
 
@@ -525,6 +582,59 @@ export default function HostSettingsPage() {
                 )}
               </div>
             )}
+          </GlassCard>
+        )}
+
+        {/* LINKED ACCOUNTS TAB */}
+        {activeTab === "linked" && (
+          <GlassCard className="p-8 max-w-2xl">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-[var(--singr-accent-primary)]">
+                <Link className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white mb-1">Connected Social Identities</h3>
+                <p className="text-xs text-[var(--singr-text-secondary)] font-sans max-w-md leading-relaxed">
+                  Link social identity providers to sign in to your host console with one click.
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-[var(--singr-border)] my-6"></div>
+
+            <div className="flex flex-col gap-4 font-sans text-sm">
+              <div className="flex justify-between items-center p-4 rounded-xl bg-white/5 border border-white/5">
+                <div>
+                  <p className="font-semibold text-white">Google Integration</p>
+                  <p className="text-xs text-[var(--singr-text-secondary)] mt-0.5">
+                    {accounts.some(acc => acc.providerId === "google" || acc.provider === "google")
+                      ? "Connected to Google Identity Ledger"
+                      : "Not connected"
+                    }
+                  </p>
+                </div>
+                
+                {accounts.some(acc => acc.providerId === "google" || acc.provider === "google") ? (
+                  <GlassButton
+                    variant="secondary"
+                    onClick={() => handleUnlinkAccount("google")}
+                    className="text-xs py-2 px-4 border border-red-500/10 hover:border-red-500/30 text-red-400 font-bold"
+                    disabled={loading}
+                  >
+                    Unlink
+                  </GlassButton>
+                ) : (
+                  <GlassButton
+                    variant="primary"
+                    onClick={handleLinkGoogle}
+                    className="text-xs py-2 px-4 font-bold"
+                    disabled={loading}
+                  >
+                    Link Google
+                  </GlassButton>
+                )}
+              </div>
+            </div>
           </GlassCard>
         )}
 

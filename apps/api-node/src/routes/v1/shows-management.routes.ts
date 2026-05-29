@@ -38,6 +38,71 @@ async function getHostIdForUser(user: any): Promise<string> {
   return membership.hostUsersId
 }
 
+// 0. GET /v1/shows — List all shows manageable by the host/manager
+router.get('/', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const manageableHostIds = [req.user.id]
+    const memberships = await prisma.hostTeamMember.findMany({
+      where: {
+        userId: req.user.id,
+        role: 'host_manager',
+      },
+      select: {
+        hostUsersId: true,
+      },
+    })
+    memberships.forEach((m) => manageableHostIds.push(m.hostUsersId))
+
+    const shows = await prisma.show.findMany({
+      where: {
+        hostUsersId: { in: manageableHostIds },
+        deletedAt: null,
+      },
+      include: {
+        venue: {
+          select: {
+            id: true,
+            name: true,
+            address1: true,
+            city: true,
+            state: true,
+            zip: true,
+            isPrivate: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    const formattedShows = shows.map((show) => ({
+      id: show.id,
+      legacyId: show.legacyId,
+      showName: show.showName,
+      slug: show.slug,
+      pinCode: show.pinCode,
+      isAccepting: show.isAccepting,
+      activeSystemsId: show.activeSystemsId,
+      createdAt: show.createdAt,
+      venueName: show.venue?.name || 'Unknown Venue',
+      venue: show.venue,
+    }))
+
+    return res.status(200).json({
+      success: true,
+      shows: formattedShows,
+    })
+  } catch (error: any) {
+    console.error('Error fetching shows:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve shows.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
 // 1. POST /v1/shows — Create a show linked to a venue
 router.post('/', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
   const venueId = req.body.venueId as string

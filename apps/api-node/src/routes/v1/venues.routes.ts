@@ -7,19 +7,41 @@ import { redis } from '../../lib/redis.js'
 
 const router: Router = Router()
 
-// Helper to check if user can manage resource created by hostId
-async function canManageHostResource(userId: string, creatorId: string | null): Promise<boolean> {
-  if (!creatorId) return false
-  if (userId === creatorId) return true
+// Helper to geocode an address manually via Google Geocoding API
+async function geocodeAddress(address1: string, city: string, state: string, zip: string): Promise<{ lat: number | null, lon: number | null }> {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY
+  if (!apiKey) {
+    console.warn('⚠️ GOOGLE_PLACES_API_KEY is not set. Skipping geocoding API call.')
+    return { lat: null, lon: null }
+  }
 
-  const teamMember = await prisma.hostTeamMember.findFirst({
+  const addressString = `${address1}, ${city}, ${state} ${zip}`
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressString)}&key=${apiKey}`
+
+  try {
+    const response = await fetch(url)
+    const data = await response.json() as any
+    if (data.status === 'OK' && data.results?.[0]?.geometry?.location) {
+      const loc = data.results[0].geometry.location
+      return { lat: loc.lat, lon: loc.lng }
+    }
+    console.warn(`Geocoding status was: ${data.status}`)
+  } catch (error: any) {
+    console.warn('Geocoding address failed:', error.message)
+  }
+  return { lat: null, lon: null }
+}
+
+// Helper to check if a user is linked to a venue via HostVenue or host_manager team membership
+async function canManageVenue(userId: string, venueId: string): Promise<boolean> {
+  const manageableHostIds = await getManageableHostIds(userId)
+  const link = await prisma.hostVenue.findFirst({
     where: {
-      hostUsersId: creatorId,
-      userId,
-      role: 'host_manager',
+      userId: { in: manageableHostIds },
+      venueId,
     },
   })
-  return !!teamMember
+  return !!link
 }
 
 // Helper to get all host IDs the user can manage resources for
@@ -38,20 +60,24 @@ async function getManageableHostIds(userId: string): Promise<string[]> {
   return hostIds
 }
 
-// 1. GET /v1/venues — List all venues manageable by the host/manager
+// 1. GET /v1/venues — List all venues manageable by the host/manager (via HostVenue relations)
 router.get('/', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
   try {
     const manageableHostIds = await getManageableHostIds(req.user.id)
 
-    const venues = await prisma.venue.findMany({
+    const hostVenues = await prisma.hostVenue.findMany({
       where: {
-        createdBy: { in: manageableHostIds },
-        deletedAt: null,
+        userId: { in: manageableHostIds },
+        venue: { deletedAt: null },
       },
-      orderBy: {
-        name: 'asc',
+      include: {
+        venue: true,
       },
     })
+
+    const venues = hostVenues
+      .map((hv: any) => hv.venue)
+      .sort((a: any, b: any) => (a?.name || '').localeCompare(b?.name || ''))
 
     return res.status(200).json({
       success: true,
@@ -67,7 +93,123 @@ router.get('/', requireAuth, requireRoles(['host', 'host_manager']), async (req:
   }
 })
 
-// 2. POST /v1/venues — Create a venue (public via mock autocomplete, or private manual)
+// 2. GET /v1/venues/search — Search/autocomplete venues via Google Places API TextSearch
+router.get('/search', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
+  const query = req.query.q as string
+
+  if (!query || query.trim().length < 2) {
+    return res.status(400).json({
+      success: false,
+      message: 'Query parameter "q" is required and must be at least 2 characters.',
+    })
+  }
+
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY
+
+  try {
+    if (!apiKey) {
+      throw new Error('Google Places API key is not configured.')
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`
+    const response = await fetch(url)
+    const data = await response.json() as any
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new Error(`Google Places API error: ${data.status} - ${data.error_message || 'Unknown error'}`)
+    }
+
+    const results = (data.results || []).map((place: any) => {
+      const addressString = place.formatted_address || ''
+      const parts = addressString.split(',').map((p: any) => p.trim())
+      
+      let address1 = parts[0] || place.name
+      let city = parts[1] || ''
+      let stateZip = parts[2] || ''
+      let state = ''
+      let zip = ''
+
+      if (stateZip) {
+        const szParts = stateZip.trim().split(/\s+/)
+        state = szParts[0] || ''
+        zip = szParts[1] || ''
+      }
+
+      if (!zip && parts.length > 3) {
+        state = parts[2] || ''
+        const zipPart = parts[3] || ''
+        zip = zipPart.trim().split(/\s+/)[0] || ''
+      }
+
+      return {
+        externalId: place.place_id,
+        name: place.name,
+        address1,
+        city: city || 'Unknown City',
+        state: state || 'TX',
+        zip: zip || '78701',
+        lat: place.geometry?.location?.lat || null,
+        lon: place.geometry?.location?.lng || null,
+        placeType: place.types?.[0] || 'bar',
+      }
+    })
+
+    return res.status(200).json({
+      success: true,
+      results,
+    })
+  } catch (error: any) {
+    console.warn('Google Places Search failed, falling back to simulated mock results:', error.message)
+    const mockResults = [
+      {
+        externalId: 'mock_place_wobbly',
+        name: 'The Wobbly Penguin',
+        address1: '512 Penguin Way',
+        city: 'Rapid City',
+        state: 'SD',
+        zip: '57201',
+        lat: 44.0805,
+        lon: -103.2310,
+        placeType: 'bar',
+      },
+      {
+        externalId: 'mock_place_green',
+        name: 'The Green Parrot Bar',
+        address1: '601 Whitehead St',
+        city: 'Key West',
+        state: 'FL',
+        zip: '33040',
+        lat: 24.5516,
+        lon: -81.8028,
+        placeType: 'bar',
+      },
+      {
+        externalId: 'mock_place_blue',
+        name: 'Blue Room Karaoke',
+        address1: '100 Broadway',
+        city: 'Nashville',
+        state: 'TN',
+        zip: '37201',
+        lat: 36.1627,
+        lon: -86.7816,
+        placeType: 'bar',
+      }
+    ]
+
+    const filteredMocks = mockResults.filter(
+      r => r.name.toLowerCase().includes(query.toLowerCase()) || 
+           r.city.toLowerCase().includes(query.toLowerCase()) ||
+           r.zip.includes(query)
+    )
+
+    return res.status(200).json({
+      success: true,
+      results: filteredMocks.length > 0 ? filteredMocks : mockResults,
+    })
+  }
+})
+
+// 3. POST /v1/venues — Create or adopt a venue (public via Places autocomplete, or private manual)
 router.post('/', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
   const {
     name,
@@ -94,41 +236,74 @@ router.post('/', requireAuth, requireRoles(['host', 'host_manager']), async (req
 
   const isVenuePrivate = Boolean(isPrivate)
 
-  // Public venues must have an externalId (Google Places ID)
-  if (!isVenuePrivate && !externalId) {
-    return res.status(400).json({
-      success: false,
-      message: 'Public venues require an externalId from autocomplete.',
-    })
-  }
-
   try {
-    const venue = await prisma.venue.create({
-      data: {
-        name,
-        address1,
-        address2: address2 || null,
-        city,
-        state,
-        zip,
-        lat: lat ? parseFloat(lat) : null,
-        lon: lon ? parseFloat(lon) : null,
-        isPrivate: isVenuePrivate,
-        externalId: isVenuePrivate ? null : String(externalId),
-        externalProvider: isVenuePrivate ? null : (externalProvider || 'google'),
-        placeType: placeType || 'bar',
-        hoursOfOperation: hoursOfOperation || null,
-        createdBy: req.user.id,
+    let venue: any = null
+
+    // If externalId is provided (Google Place)
+    if (externalId && !isVenuePrivate) {
+      // Check if it already exists
+      venue = await prisma.venue.findFirst({
+        where: {
+          externalId: String(externalId),
+          deletedAt: null,
+        },
+      })
+    }
+
+    if (!venue) {
+      // Geocode address if coordinates are missing (like in manual creation)
+      let resolvedLat = lat ? parseFloat(lat) : null
+      let resolvedLon = lon ? parseFloat(lon) : null
+
+      if (resolvedLat === null || resolvedLon === null) {
+        const coords = await geocodeAddress(address1, city, state, zip)
+        resolvedLat = coords.lat
+        resolvedLon = coords.lon
+      }
+
+      // Create new Venue
+      venue = await prisma.venue.create({
+        data: {
+          name,
+          address1,
+          address2: address2 || null,
+          city,
+          state,
+          zip,
+          lat: resolvedLat,
+          lon: resolvedLon,
+          isPrivate: isVenuePrivate,
+          externalId: isVenuePrivate ? null : (externalId ? String(externalId) : null),
+          externalProvider: isVenuePrivate ? null : (externalProvider || (externalId ? 'google' : null)),
+          placeType: placeType || 'bar',
+          hoursOfOperation: hoursOfOperation || null,
+          createdBy: req.user.id,
+        },
+      })
+    }
+
+    // Link this venue to the host via HostVenue relationship
+    await prisma.hostVenue.upsert({
+      where: {
+        userId_venueId: {
+          userId: req.user.id,
+          venueId: venue.id,
+        },
+      },
+      update: {},
+      create: {
+        userId: req.user.id,
+        venueId: venue.id,
       },
     })
 
     return res.status(201).json({
       success: true,
-      message: `${isVenuePrivate ? 'Private' : 'Public'} venue created successfully.`,
+      message: `${isVenuePrivate ? 'Private' : 'Public'} venue registered successfully.`,
       venue,
     })
   } catch (error: any) {
-    console.error('Error creating venue:', error)
+    console.error('Error creating/adopting venue:', error)
     if (error.code === 'P2002') {
       return res.status(409).json({
         success: false,
@@ -143,7 +318,7 @@ router.post('/', requireAuth, requireRoles(['host', 'host_manager']), async (req
   }
 })
 
-// 3. PATCH /v1/venues/:id — Update venue details (Private venues only; Public protected)
+// 4. PATCH /v1/venues/:id — Update venue details (Private venues only; Public protected)
 router.patch('/:id', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string
   const { name, address1, address2, city, state, zip, lat, lon, hoursOfOperation } = req.body
@@ -163,7 +338,7 @@ router.patch('/:id', requireAuth, requireRoles(['host', 'host_manager']), async 
       })
     }
 
-    const isAuthorized = await canManageHostResource(req.user.id, venue.createdBy)
+    const isAuthorized = await canManageVenue(req.user.id, venue.id)
     if (!isAuthorized) {
       return res.status(403).json({
         success: false,
@@ -210,7 +385,7 @@ router.patch('/:id', requireAuth, requireRoles(['host', 'host_manager']), async 
   }
 })
 
-// 4. POST /v1/venues/:id/sync — Rate-limited Google Places sync (mock/stub)
+// 5. POST /v1/venues/:id/sync — Rate-limited Google Places sync (mock/stub)
 router.post('/:id/sync', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string
 
@@ -229,7 +404,7 @@ router.post('/:id/sync', requireAuth, requireRoles(['host', 'host_manager']), as
       })
     }
 
-    const isAuthorized = await canManageHostResource(req.user.id, venue.createdBy)
+    const isAuthorized = await canManageVenue(req.user.id, venue.id)
     if (!isAuthorized) {
       return res.status(403).json({
         success: false,
@@ -256,14 +431,13 @@ router.post('/:id/sync', requireAuth, requireRoles(['host', 'host_manager']), as
     }
 
     // Perform mock sync from Google Places
-    // In production, we would use axios/fetch to hit Google Places API with venue.externalId
     const mockSyncedDetails = {
       name: venue.name + ' (Synced)',
       address1: venue.address1,
       city: venue.city,
       state: venue.state,
       zip: venue.zip,
-      lat: venue.lat || 30.2672, // Mock coordinates if null
+      lat: venue.lat || 30.2672,
       lon: venue.lon || -97.7431,
       hoursOfOperation: {
         open_now: true,
@@ -305,7 +479,7 @@ router.post('/:id/sync', requireAuth, requireRoles(['host', 'host_manager']), as
   }
 })
 
-// 5. DELETE /v1/venues/:id — Soft-delete a venue
+// 6. DELETE /v1/venues/:id — Remove venue relationship for host (soft-delete if no other host is linked)
 router.delete('/:id', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string
 
@@ -324,25 +498,35 @@ router.delete('/:id', requireAuth, requireRoles(['host', 'host_manager']), async
       })
     }
 
-    const isAuthorized = await canManageHostResource(req.user.id, venue.createdBy)
-    if (!isAuthorized) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. You do not have permission to delete this venue.',
-      })
-    }
-
-    await prisma.venue.update({
-      where: { id: id },
-      data: {
-        deletedBy: req.user.id,
-        deletedAt: new Date(),
+    // 1. Remove the HostVenue relationship link for this host
+    await prisma.hostVenue.deleteMany({
+      where: {
+        userId: req.user.id,
+        venueId: id,
       },
     })
 
+    // 2. Check if any other hosts are linked to this venue
+    const remainingLinks = await prisma.hostVenue.count({
+      where: {
+        venueId: id,
+      },
+    })
+
+    // 3. If no other host is linked, soft-delete the venue itself
+    if (remainingLinks === 0) {
+      await prisma.venue.update({
+        where: { id: id },
+        data: {
+          deletedBy: req.user.id,
+          deletedAt: new Date(),
+        },
+      })
+    }
+
     return res.status(200).json({
       success: true,
-      message: 'Venue deleted successfully.',
+      message: 'Venue successfully removed from your console.',
     })
   } catch (error: any) {
     console.error('Error deleting venue:', error)

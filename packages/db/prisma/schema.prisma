@@ -52,6 +52,7 @@ model User {
   createdVenues Venue[] @relation("CreatedVenues")
   updatedVenues Venue[] @relation("UpdatedVenues")
   deletedVenues Venue[] @relation("DeletedVenues")
+  hostVenues    HostVenue[]
 
   // Show management relations
   showsAsHost  Show[]  @relation("HostShows")
@@ -211,6 +212,7 @@ model Venue {
   deleter User? @relation("DeletedVenues", fields: [deletedBy], references: [id])
 
   shows Show[]
+  hostVenues HostVenue[]
 
   @@map("venues")
 }
@@ -359,4 +361,17 @@ model Subscription {
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("subscriptions")
+}
+
+model HostVenue {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @map("host_venues_id") @db.Uuid
+  userId    String   @map("users_id") @db.Uuid
+  venueId   String   @map("venues_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, venueId])
+  @@map("host_venues")
 }
