@@ -1,66 +1,41 @@
-import { useState } from 'react';
-import { Page, Navbar, NavTitle, Block } from 'framework7-react';
-import { GlassCard, GlassButton } from '@singr/ui';
-import { Trash2 } from 'lucide-react';
+import { Page, useStore } from 'framework7-react';
+import SongList, { SongItem } from '../components/SongList';
+import store from '../lib/store';
+import VibeNavbar from '../components/VibeNavbar';
 
-interface Favorite {
-  id: string;
-  title: string;
-  artist: string;
-}
+export default function FavoritesPage() {
+  const favorites = useStore('favorites') || [];
 
-export default function FavoritesView() {
-  const [favorites, setFavorites] = useState<Favorite[]>([
-    { id: "fav-1", title: "Bohemian Rhapsody", artist: "Queen" },
-    { id: "fav-2", title: "Sweet Child O' Mine", artist: "Guns N' Roses" },
-  ]);
-
-  const handleDelete = (id: string) => {
-    setFavorites(favorites.filter(fav => fav.id !== id));
+  const handleSongTap = (song: SongItem) => {
+    store.dispatch('openRequestSheet', song);
   };
 
   return (
-    <Page>
-      <Navbar className="glass-panel border-x-0 border-t-0 rounded-none bg-[var(--singr-bg-secondary)]/10 backdrop-blur-md">
-        <NavTitle className="text-white font-bold font-sans">⭐️ My Favorites</NavTitle>
-      </Navbar>
+    <Page name="favorites" className="favorites-page">
+      <VibeNavbar />
 
-      <Block className="m-0 p-6 flex flex-col gap-6">
-        <p className="text-xs text-[var(--singr-text-secondary)] font-sans m-0">
-          Save your absolute best vocal tracks to request them in a single tap at any venue show.
-        </p>
+      {/* Page Header */}
+      <div className="page-header">
+        <div className="page-header-title">Favorites</div>
+        <div className="page-header-sub">Your quick-request song list</div>
+      </div>
 
-        <div className="flex flex-col gap-4">
-          {favorites.length === 0 ? (
-            <GlassCard className="p-8 text-center bg-white/5 border border-white/5">
-              <p className="text-sm text-[var(--singr-text-secondary)] font-sans m-0">
-                No favorites saved yet. Browse the Catalog and tap star to add them.
-              </p>
-            </GlassCard>
-          ) : (
-            favorites.map((fav) => (
-              <GlassCard key={fav.id} className="p-4 flex justify-between items-center gap-4" hoverable={true}>
-                <div>
-                  <h4 className="text-sm font-extrabold text-white leading-tight mb-1">{fav.title}</h4>
-                  <p className="text-xs text-[var(--singr-text-secondary)] font-sans m-0">{fav.artist}</p>
-                </div>
-                <div className="flex gap-2">
-                  <GlassButton variant="primary" className="py-1.5 px-3 text-xs font-bold">
-                    Quick Request
-                  </GlassButton>
-                  <GlassButton 
-                    onClick={() => handleDelete(fav.id)}
-                    variant="secondary" 
-                    className="py-1.5 px-2.5 border border-red-500/10 text-red-400 hover:bg-red-500/5 hover:border-red-500/30"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </GlassButton>
-                </div>
-              </GlassCard>
-            ))
-          )}
-        </div>
-      </Block>
+      {/* Favorites List Content */}
+      <div style={{ padding: '0 16px 24px' }}>
+        {favorites.length > 0 ? (
+          <SongList songs={favorites} onSongTap={handleSongTap} />
+        ) : (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <i className="f7-icons">heart</i>
+            </div>
+            <div className="empty-state-title">No favorites yet</div>
+            <div className="empty-state-text">
+              Tap the heart icon next to any song in Search to save it here for quick access.
+            </div>
+          </div>
+        )}
+      </div>
     </Page>
   );
 }

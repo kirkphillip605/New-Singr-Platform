@@ -8,8 +8,8 @@ import Framework7React from 'framework7-react';
 import 'framework7/css/bundle';
 
 // Import shared styles
-import '@singr/ui/styles';
-import './css/app.css';
+import './css/icons.css';
+import './css/app.scss';
 
 // Initialize Framework7 React plugin
 Framework7.use(Framework7React);

@@ -1,5 +1,5 @@
 import { createAuthClient } from "better-auth/react";
-import { twoFactorClient, phoneNumberClient } from "better-auth/client/plugins";
+import { twoFactorClient, phoneNumberClient, magicLinkClient } from "better-auth/client/plugins";
 import { stripeClient } from "@better-auth/stripe/client";
 
 export const authClient = createAuthClient({
@@ -9,6 +9,7 @@ export const authClient = createAuthClient({
       twoFactorPage: "/two-factor",
     }),
     phoneNumberClient(),
+    magicLinkClient(),
     stripeClient({
       subscription: true,
     }),

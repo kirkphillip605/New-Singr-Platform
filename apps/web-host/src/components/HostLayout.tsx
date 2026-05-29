@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useSession, signOut } from "@/lib/auth-client";
-import { GlassButton, SingrLogo } from "@singr/ui";
+import { useSession, signOut, authClient } from "@/lib/auth-client";
+import { GlassButton, SingrLogo, GlassCard } from "@singr/ui";
 import { 
   LayoutDashboard, 
   MapPin, 
@@ -13,7 +13,9 @@ import {
   Users, 
   CreditCard, 
   LogOut,
-  Settings
+  Settings,
+  Sparkles,
+  HelpCircle
 } from "lucide-react";
 
 interface HostLayoutProps {
@@ -21,12 +23,35 @@ interface HostLayoutProps {
   title: string;
 }
 
+interface Tier {
+  stripePriceId: string;
+  name: string;
+  priceCents: number;
+  interval: string;
+  features: {
+    maxVenues?: number;
+    maxSystems?: number;
+    support?: string;
+    trialDays?: number;
+  } | null;
+}
+
 export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, isPending: sessionLoading } = useSession();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [isSubscribed, setIsSubscribed] = useState(true);
 
+  // Billing states (for when subscription is inactive)
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [loadingTiers, setLoadingTiers] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+  // Check onboarding status
   useEffect(() => {
     if (sessionLoading) return;
 
@@ -35,11 +60,8 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
       return;
     }
 
-    // Validate onboarding state (email, profile details, and stripe subscription)
     const checkOnboarding = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
         // Extract session_id query parameter if present (from Stripe redirect)
         const params = new URLSearchParams(window.location.search);
         const sessionId = params.get("session_id");
@@ -48,20 +70,15 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
           try {
             const verifyRes = await fetch(`${apiUrl}/api/v1/billing/verify-session`, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ sessionId }),
               credentials: "include",
             });
             const verifyData = await verifyRes.json();
             if (verifyData.success) {
               console.log("Subscription verified synchronously: active!");
-              // Clean URL parameter without page reload
               const cleanUrl = window.location.pathname;
               window.history.replaceState({}, document.title, cleanUrl);
-            } else {
-              console.error("Stripe session verification failed:", verifyData.message);
             }
           } catch (verifyErr) {
             console.error("Error calling verify-session endpoint:", verifyErr);
@@ -82,16 +99,17 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
             return;
           }
 
-          // Step 2: Complete Profile
-          if (!user.firstName || !user.lastName || !user.phoneNumber || !user.businessName) {
-            router.push("/signup?step=2");
+          // Step 2: Complete Profile details (first name, last name, business name)
+          if (!user.firstName || !user.lastName || !user.businessName) {
+            router.push("/signup?step=3");
             return;
           }
 
           // Step 3: Subscription Status
           if (user.subscriptionStatus !== "active") {
-            router.push("/signup?step=3");
-            return;
+            setIsSubscribed(false);
+          } else {
+            setIsSubscribed(true);
           }
 
           setCheckingOnboarding(false);
@@ -106,11 +124,60 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
     };
 
     checkOnboarding();
-  }, [session, sessionLoading, router]);
+  }, [session, sessionLoading, router, apiUrl]);
+
+  // Load tiers when subscription is inactive
+  useEffect(() => {
+    if (!isSubscribed) {
+      setLoadingTiers(true);
+      fetch(`${apiUrl}/api/v1/billing/tiers`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.tiers) {
+            setTiers(data.tiers);
+          }
+        })
+        .catch((err) => {
+          console.error("Error loading tiers:", err);
+        })
+        .finally(() => {
+          setLoadingTiers(false);
+        });
+    }
+  }, [isSubscribed, apiUrl]);
 
   const handleLogout = async () => {
     await signOut();
     router.push("/login");
+  };
+
+  const handleSubscribe = async (priceId: string) => {
+    setErrorMsg("");
+    setActionLoading(true);
+
+    let plan = "monthly";
+    if (priceId === "price_1TOBKVEHv8jD9HNKcXvrP2Po") plan = "six_month";
+    if (priceId === "price_1TOBKVEHv8jD9HNKK0nTrlRV") plan = "annual";
+
+    try {
+      const res = await authClient.subscription.upgrade({
+        plan,
+        successUrl: `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: window.location.href,
+      });
+
+      if (res?.error) {
+        setErrorMsg(res.error.message || "Failed to initiate Stripe Checkout.");
+      } else if (res?.data?.url) {
+        window.location.href = res.data.url;
+      } else {
+        setErrorMsg("Failed to generate subscription checkout URL.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to start subscription checkout.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const navItems = [
@@ -134,6 +201,9 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
       </div>
     );
   }
+
+  // Account settings and Billing routes are always allowed to render children
+  const isAccountRoute = pathname === "/settings" || pathname === "/billing";
 
   return (
     <div className="flex min-h-screen bg-[var(--singr-bg-primary)]">
@@ -201,8 +271,107 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
             </span>
           </div>
         </header>
+        
         <div className="flex-1 p-8 overflow-y-auto">
-          {children}
+          {!isSubscribed && !isAccountRoute ? (
+            /* DYNAMIC SUBSCRIPTION BLOCKING INTERFACE */
+            <div className="max-w-4xl mx-auto flex flex-col gap-8 py-4">
+              <GlassCard className="p-8 relative overflow-hidden border-red-500/10" hoverable={false}>
+                <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full filter blur-3xl pointer-events-none"></div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-red-400 mb-2 block font-sans">
+                    Billing Coverage Required
+                  </span>
+                  <h2 className="text-2xl font-extrabold text-white mb-2">
+                    Activate Your Host Subscription
+                  </h2>
+                  <p className="text-xs text-[var(--singr-text-secondary)] font-sans m-0 leading-relaxed max-w-2xl">
+                    To access the full host console features (deploying shows, editing venues, operating singer request queues), please choose a subscription plan below. All options include a free trial period.
+                  </p>
+                </div>
+              </GlassCard>
+
+              {errorMsg && (
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-sans">
+                  ⚠️ {errorMsg}
+                </div>
+              )}
+
+              <div>
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-white mb-1.5 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-[var(--singr-accent-primary)]" />
+                    Select a Coverage Plan
+                  </h3>
+                  <p className="text-xs text-[var(--singr-text-secondary)] font-sans m-0">
+                    Choose the payment frequency that works best for your entertainment business.
+                  </p>
+                </div>
+
+                {loadingTiers ? (
+                  <div className="text-center py-12 text-sm text-[var(--singr-text-secondary)] font-sans">
+                    Loading pricing options...
+                  </div>
+                ) : tiers.length === 0 ? (
+                  <div className="text-center py-8 text-xs text-[var(--singr-text-secondary)] border border-white/5 rounded-2xl font-sans">
+                    No pricing tiers found. Please contact support or retry later.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {tiers.map((tier) => (
+                      <GlassCard 
+                        key={tier.stripePriceId} 
+                        className="p-6 flex flex-col justify-between border border-white/5 hover:border-[var(--singr-accent-primary)]/20 transition-all duration-300"
+                        hoverable={true}
+                      >
+                        <div>
+                          <h4 className="text-base font-bold text-white mb-1">{tier.name}</h4>
+                          <p className="text-[10px] text-[var(--singr-text-secondary)] font-sans mb-4">
+                            {tier.features?.trialDays ? `${tier.features.trialDays}-day free trial included` : "Immediate access"}
+                          </p>
+                          
+                          <div className="flex items-baseline gap-1 mb-6 font-sans">
+                            <span className="text-3xl font-extrabold text-white">${(tier.priceCents / 100).toFixed(2)}</span>
+                            <span className="text-[10px] text-[var(--singr-text-secondary)] font-sans">
+                              /{tier.interval === "month" ? "mo" : tier.interval === "6_months" ? "6mo" : "yr"}
+                            </span>
+                          </div>
+                          
+                          <div className="border-t border-[var(--singr-border)] my-4"></div>
+                          
+                          <ul className="list-none p-0 m-0 flex flex-col gap-3 font-sans text-xs text-[var(--singr-text-secondary)] mb-6">
+                            <li className="flex items-center gap-2">
+                              <MapPin className="w-3.5 h-3.5 text-[var(--singr-accent-primary)] flex-shrink-0" />
+                              <span>{tier.features?.maxVenues ? `Up to ${tier.features.maxVenues} active venues` : "Unlimited venues"}</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <Layers className="w-3.5 h-3.5 text-[var(--singr-accent-primary)] flex-shrink-0" />
+                              <span>{tier.features?.maxSystems ? `Up to ${tier.features.maxSystems} hardware keys` : "Unlimited hardware"}</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <HelpCircle className="w-3.5 h-3.5 text-[var(--singr-accent-primary)] flex-shrink-0" />
+                              <span>{tier.features?.support === "priority" ? "24/7 Priority Support" : "Standard Support"}</span>
+                            </li>
+                          </ul>
+                        </div>
+
+                        <GlassButton
+                          onClick={() => handleSubscribe(tier.stripePriceId)}
+                          disabled={actionLoading}
+                          variant="primary"
+                          className="w-full py-2.5 text-xs font-bold flex items-center justify-center gap-1.5"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" /> Subscribe
+                        </GlassButton>
+                      </GlassCard>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            children
+          )}
         </div>
       </main>
     </div>

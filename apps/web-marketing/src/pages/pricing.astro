@@ -84,6 +84,13 @@ const getIntervalText = (interval: string) => {
   if (interval === 'year') return 'year';
   return interval;
 };
+
+const getPlanName = (interval: string) => {
+  if (interval === 'month') return 'monthly';
+  if (interval === '6_months') return 'six_month';
+  if (interval === 'year') return 'annual';
+  return interval;
+};
 ---
 
 <Layout title="Simple Transparent Pricing — Singr Karaoke">
@@ -126,7 +133,7 @@ const getIntervalText = (interval: string) => {
               ))}
             </ul>
           </div>
-          <a href={`${hostPortalUrl}/signup?step=3`} class="decoration-none w-full">
+          <a href={`${hostPortalUrl}/signup?plan=${getPlanName(tier.interval)}`} class="decoration-none w-full">
             <GlassButton variant={tier.interval === 'year' ? "primary" : "secondary"} className="w-full py-3 text-sm">
               Subscribe as Host
             </GlassButton>

@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { prisma, rawPrisma } from '@singr/db'
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js'
+import { auth } from '../../lib/auth.js'
+import { fromNodeHeaders } from 'better-auth/node'
 
 const router: Router = Router()
 
@@ -256,10 +258,10 @@ router.put('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const { firstName, lastName, businessName, phoneNumber } = req.body
 
-    if (!firstName || !lastName || !businessName || !phoneNumber) {
+    if (!firstName || !lastName || !businessName) {
       return res.status(400).json({
         success: false,
-        message: 'All profile fields (First Name, Last Name, Business Name, Phone Number) are required.',
+        message: 'First Name, Last Name, and Business Name are required.',
       })
     }
 
@@ -271,7 +273,7 @@ router.put('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
         firstName,
         lastName,
         businessName,
-        phoneNumber,
+        phoneNumber: phoneNumber || undefined,
       },
     })
 
@@ -292,6 +294,76 @@ router.put('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to update profile.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+// 7. POST /v1/users/check-email — Check if user email exists and verification status (public)
+router.post('/check-email', async (req, res) => {
+  try {
+    const { email } = req.body
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required.',
+      })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        email: email.toLowerCase().trim(),
+      },
+    })
+
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        exists: false,
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      exists: true,
+      emailVerified: user.emailVerified,
+    })
+  } catch (error: any) {
+    console.error('Error checking email:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to check email.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+// 8. POST /v1/users/set-password — Set or update password for logged-in user (authenticated)
+router.post('/set-password', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { password } = req.body
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required.',
+      })
+    }
+
+    // Call Better Auth setPassword server API
+    await auth.api.setPassword({
+      body: { newPassword: password },
+      headers: fromNodeHeaders(req.headers),
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password set successfully.',
+    })
+  } catch (error: any) {
+    console.error('Error setting password:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to set password.',
       error: error instanceof Error ? error.message : String(error),
     })
   }
