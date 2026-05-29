@@ -3,7 +3,7 @@
 import React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
-import { GlassButton } from "@singr/ui";
+import { GlassButton, SingrLogo } from "@singr/ui";
 import { LayoutDashboard, Users, LogOut, ShieldAlert } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -31,9 +31,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
       {/* Sidebar Navigation */}
       <aside className="w-64 border-r border-[var(--singr-border)] bg-[var(--singr-bg-secondary)]/10 backdrop-blur-xl flex flex-col justify-between p-6">
         <div>
-          <div className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white mb-8">
-            <span className="flex items-center gap-2 text-red-500 font-extrabold font-sans text-xl">
-              🛡️ Singr Admin
+          <div className="flex items-center gap-2 mb-8 flex-wrap">
+            <SingrLogo variant="white" className="h-6 w-auto object-contain" />
+            <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full font-sans">
+              Admin
             </span>
           </div>
 

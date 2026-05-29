@@ -8,7 +8,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./styles": "./src/styles/index.css"
+    "./styles": "./src/styles/index.css",
+    "./assets/*": "./assets/*"
   },
   "scripts": {
     "build": "echo 'ui package uses live source — no build step'",

@@ -9,15 +9,12 @@ import {
   RefreshCw, 
   Music, 
   Clock, 
-  Sparkles,
   Layers,
   Search,
   Check
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
-import { GlassCard } from '@singr/ui';
-import { GlassButton } from '@singr/ui';
-import { GlassInput } from '@singr/ui';
+import { GlassCard, GlassButton, GlassInput, SingrIcon } from '@singr/ui';
 
 const electronAPI = (window as any).electronAPI;
 
@@ -304,12 +301,10 @@ export default function App() {
       {/* Sleek Custom Window Header */}
       <header className="flex items-center justify-between px-6 pt-10 pb-4 select-none border-b border-zinc-800/40 bg-zinc-950/20 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
-            <Sparkles size={20} className="animate-pulse" />
-          </div>
+          <SingrIcon className="w-9 h-9 rounded-xl shadow-lg" />
           <div>
-            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
-              Singr Agent
+            <h1 className="text-lg font-bold tracking-tight text-white">
+              Agent
             </h1>
             <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Local Control Console</span>
           </div>

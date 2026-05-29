@@ -251,4 +251,51 @@ router.get('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
   }
 })
 
+// 6. PUT /v1/users/profile — Update user profile details directly
+router.put('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { firstName, lastName, businessName, phoneNumber } = req.body
+
+    if (!firstName || !lastName || !businessName || !phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'All profile fields (First Name, Last Name, Business Name, Phone Number) are required.',
+      })
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: req.user.id,
+      },
+      data: {
+        firstName,
+        lastName,
+        businessName,
+        phoneNumber,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        phoneNumber: updatedUser.phoneNumber,
+        businessName: updatedUser.businessName,
+      },
+    })
+  } catch (error: any) {
+    console.error('Error updating user profile:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update profile.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
 export default router
+

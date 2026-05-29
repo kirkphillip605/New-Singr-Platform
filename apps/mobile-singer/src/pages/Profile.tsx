@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Page, Navbar, NavTitle, Block } from 'framework7-react';
-import { GlassCard, GlassButton, GlassInput } from '@singr/ui';
+import { GlassCard, GlassButton, GlassInput, SingrLogo } from '@singr/ui';
 import { User, Sparkles } from 'lucide-react';
 import { useSession, signOut, signIn, signUp, authClient } from '../lib/auth-client';
 
@@ -198,6 +198,10 @@ export default function ProfileView() {
         ) : (
           /* Anonymous guest & Auth Forms */
           <div className="flex flex-col gap-6">
+            <div className="flex justify-center py-2 mb-2">
+              <SingrLogo variant="white" className="h-10 w-auto object-contain" />
+            </div>
+
             <GlassCard className="p-6 flex items-start gap-4">
               <div className="p-3 bg-gradient-to-tr from-[var(--singr-brand-start)]/20 to-[var(--singr-brand-end)]/20 border border-[var(--singr-accent-primary)]/10 text-[var(--singr-accent-primary)] rounded-xl shrink-0">
                 <User className="w-6 h-6" />

@@ -1,6 +1,7 @@
 ---
 import '@singr/ui/styles';
 import '../styles/globals.css';
+import { SingrLogo } from '@singr/ui';
 
 interface Props {
   title: string;
@@ -74,8 +75,8 @@ const singerAppUrl = import.meta.env.PUBLIC_SINGER_APP_URL || "https://app.singr
     <!-- Navbar -->
     <header class="glass-panel border-x-0 border-t-0 rounded-none sticky top-0 z-50 px-6 py-4">
       <div class="max-w-6xl mx-auto flex justify-between items-center">
-        <a href="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight text-white decoration-none hover:opacity-90 transition-opacity">
-          <span class="bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] bg-clip-text text-transparent" style="background: var(--singr-brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🎤 Singr</span>
+        <a href="/" class="flex items-center hover:opacity-90 transition-opacity decoration-none">
+          <SingrLogo variant="white" className="h-8 w-auto object-contain" />
         </a>
         <nav class="hidden md:flex gap-8">
           <a href="/host" class="text-[var(--singr-text-secondary)] hover:text-[var(--singr-text-primary)] transition-colors font-medium decoration-none text-sm">For Hosts</a>
@@ -98,7 +99,9 @@ const singerAppUrl = import.meta.env.PUBLIC_SINGER_APP_URL || "https://app.singr
     <footer class="border-t border-[var(--singr-border)] mt-24 py-12 px-6 bg-[var(--singr-bg-secondary)]/30 backdrop-blur-md">
       <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
-          <h4 class="text-lg font-bold mb-4 bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] bg-clip-text text-transparent" style="background: var(--singr-brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🎤 Singr</h4>
+          <div class="mb-4">
+            <SingrLogo variant="white" className="h-7 w-auto object-contain" />
+          </div>
           <p class="text-xs text-[var(--singr-text-secondary)] leading-relaxed">
             The premium multi-tenant SaaS platform redefining the modern karaoke experience for venues, hosts, and singers.
           </p>

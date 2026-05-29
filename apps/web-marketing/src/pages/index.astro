@@ -30,7 +30,7 @@ import { GlassCard, GlassButton } from '@singr/ui';
   </section>
 
   <!-- Key Verticals Grid -->
-  <section class="py-12">
+  <section class="py-12 border-t border-[var(--singr-border)]">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
       <!-- For Hosts -->
       <GlassCard hoverable={true} className="p-8 flex flex-col justify-between">
@@ -38,7 +38,7 @@ import { GlassCard, GlassButton } from '@singr/ui';
           <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-3 block">For Professional KJs</span>
           <h2 class="text-3xl font-extrabold text-white mb-4">Host Portal</h2>
           <p class="text-[var(--singr-text-secondary)] leading-relaxed mb-6 font-sans">
-            Manage your entire business from a single gorgeous console. Drag-and-drop live singer queues, configure complex team sub-accounts, monitor multi-system hardware keys, and integrate Stripe subscriptions effortlessly.
+            Manage your entire business from a single gorgeous console. Track fleet rigs, configure delegated assistant access, auto-populate venue details powered by Google, and run unlimited shows—all included in one transparent plan.
           </p>
         </div>
         <a href="/host" class="decoration-none self-start">
@@ -52,7 +52,7 @@ import { GlassCard, GlassButton } from '@singr/ui';
           <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-secondary)] mb-3 block">For Passionate Vocalists</span>
           <h2 class="text-3xl font-extrabold text-white mb-4">Singer Mobile App</h2>
           <p class="text-[var(--singr-text-secondary)] leading-relaxed mb-6 font-sans">
-            No more dirty paper slip requests or outdated binders. View active nearby venues on an interactive map, browse songbooks instantly with Postgres GIN full-text search, submit requests in seconds, and track your queue position in real-time.
+            Enjoy frictionless access without mandatory signups. Discover nearby shows on an interactive map, browse digital catalogs, request favorites across venues, send virtual applause, and tip your hosts directly from your phone.
           </p>
         </div>
         <a href="/singer" class="decoration-none self-start">
@@ -62,8 +62,106 @@ import { GlassCard, GlassButton } from '@singr/ui';
     </div>
   </section>
 
+  <!-- Comprehensive Platform Benefits -->
+  <section class="py-16 border-t border-[var(--singr-border)]">
+    <div class="text-center mb-12">
+      <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-3 block">Engineered for Excellence</span>
+      <h2 class="text-4xl font-extrabold text-white mb-4">Comprehensive Platform Benefits</h2>
+      <p class="max-w-2xl mx-auto text-base text-[var(--singr-text-secondary)] font-sans font-light">
+        Singr is built on top-tier engineering paradigms to ensure host peace of mind and singer delight.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <GlassCard className="p-8">
+        <div class="text-3xl mb-4">✨</div>
+        <h3 class="text-xl font-bold text-white mb-4">Modern UI/UX</h3>
+        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Designed around clean, high-contrast Material and Glass UI concepts. No tacky neon glow accents or cliché stage-lighting graphics. Boasts high visual clarity, text legibility, and an elite presentation layer that excels in dark, high-energy venues, automatically adjusting to any screen size.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-8">
+        <div class="text-3xl mb-4">🔄</div>
+        <h3 class="text-xl font-bold text-white mb-4">One Platform, One Account</h3>
+        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Your Singr account works across all app surfaces. Hosts participating as singers on their nights off can use their existing credentials to log directly into the singer app. Likewise, singers transitioning into hosting can activate a host profile instantly without separate logins.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-8">
+        <div class="text-3xl mb-4">⚡</div>
+        <h3 class="text-xl font-bold text-white mb-4">Zero Downtime Reliability</h3>
+        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Core runtime is entirely decoupled from external billing services. Subscription states are securely mirrored to the Singr cloud database. All karaoke systems continue to function 100% even if billing servers are offline. Load balancing and caching keep the platform fully operational during peak loads.
+        </p>
+      </GlassCard>
+    </div>
+  </section>
+
+  <!-- Future Features Roadmap -->
+  <section class="py-16 border-t border-[var(--singr-border)]">
+    <div class="text-center mb-12">
+      <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-secondary)] mb-3 block">Evolution & Vision</span>
+      <h2 class="text-4xl font-extrabold text-white mb-4">The Singr Features Roadmap</h2>
+      <p class="max-w-2xl mx-auto text-base text-[var(--singr-text-secondary)] font-sans font-light">
+        We are committed to continually expanding our platform. Here is a preview of the upcoming capabilities engineered to drive entertainment business growth and singer engagement.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <GlassCard className="p-6">
+        <span class="text-xs font-bold text-[var(--singr-accent-secondary)] uppercase tracking-wider block mb-2 font-mono">01 / Intelligence</span>
+        <h4 class="text-lg font-bold text-white mb-3">AI-Powered Suggestions</h4>
+        <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Machine learning engines will analyze past selections, local trends, other singers' performances, and style preferences to generate custom track recommendations. Helps performers try new material with confidence.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-6">
+        <span class="text-xs font-bold text-[var(--singr-accent-secondary)] uppercase tracking-wider block mb-2 font-mono">02 / Community</span>
+        <h4 class="text-lg font-bold text-white mb-3">Social & Show Networks</h4>
+        <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Turn every show into a temporary local social network. Users can send friend requests, interact via in-app messenger, and participate in a live, venue-wide "Show Group Chat" accessible by all checked-in singers and the KJ.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-6">
+        <span class="text-xs font-bold text-[var(--singr-accent-secondary)] uppercase tracking-wider block mb-2 font-mono">03 / Marketing</span>
+        <h4 class="text-lg font-bold text-white mb-3">Professional Business Pages</h4>
+        <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Elevate your business presence with dedicated public profiles featuring live upcoming gig calendars, contact/booking forms, and karaoke host reviews and ratings to find new clients and stand out from the competition.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-6">
+        <span class="text-xs font-bold text-[var(--singr-accent-secondary)] uppercase tracking-wider block mb-2 font-mono">04 / Engagement</span>
+        <h4 class="text-lg font-bold text-white mb-3">Broadcasting Marketing Engine</h4>
+        <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Empower hosts to build a direct pipeline to their crowd. Broadcast localized promotions, targeted text updates, and email marketing campaigns directly to singers who checked into previous shows to maximize repeat attendance.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-6">
+        <span class="text-xs font-bold text-[var(--singr-accent-secondary)] uppercase tracking-wider block mb-2 font-mono">05 / Analytics</span>
+        <h4 class="text-lg font-bold text-white mb-3">Advanced Analytical Metrics</h4>
+        <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Generate thorough administrative insights into operations. Analyze historical data pools to pull metrics on top-requested tracks, most active singers, venue engagement spikes, and rotation efficiency metrics.
+        </p>
+      </GlassCard>
+
+      <GlassCard className="p-6">
+        <span class="text-xs font-bold text-[var(--singr-accent-secondary)] uppercase tracking-wider block mb-2 font-mono">06 / Growth</span>
+        <h4 class="text-lg font-bold text-white mb-3">Referral Bonus System</h4>
+        <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+          Share unique referral codes with other hosts to earn recurring credits toward your platform costs. Credits apply instantly to upcoming invoices when a referred host subscribes or renews, enabling host platform cost offsets to $0.
+        </p>
+      </GlassCard>
+    </div>
+  </section>
+
   <!-- Trust Banner / Real-time stats -->
-  <section class="py-16 mt-12 text-center">
+  <section class="py-16 mt-12 text-center border-t border-[var(--singr-border)]">
     <h3 class="text-2xl font-bold mb-8 text-white">Why Venues & KJs Choose Singr</h3>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
       <GlassCard className="p-6">

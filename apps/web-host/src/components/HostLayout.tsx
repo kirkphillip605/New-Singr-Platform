@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
-import { GlassButton } from "@singr/ui";
+import { GlassButton, SingrLogo } from "@singr/ui";
 import { 
   LayoutDashboard, 
   MapPin, 
@@ -111,17 +111,8 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
       {/* Sidebar Navigation */}
       <aside className="w-64 border-r border-[var(--singr-border)] bg-[var(--singr-bg-secondary)]/10 backdrop-blur-xl flex flex-col justify-between p-6">
         <div>
-          <div className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white mb-8">
-            <span 
-              className="bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] bg-clip-text text-transparent"
-              style={{
-                background: "var(--singr-brand-gradient)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent"
-              }}
-            >
-              🎤 Singr
-            </span>
+          <div className="flex items-center mb-8">
+            <SingrLogo variant="white" className="h-7 w-auto object-contain" />
           </div>
 
           <nav className="flex flex-col gap-1.5">

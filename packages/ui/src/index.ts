@@ -1,3 +1,5 @@
+/// <reference path="types.d.ts" />
+
 /**
  * @singr/ui — Glass UI Design System
  *
@@ -8,3 +10,6 @@ export * from './components/GlassCard';
 export * from './components/GlassButton';
 export * from './components/GlassInput';
 export * from './components/GlassModal';
+export * from './components/SingrLogo';
+export * from './components/SingrIcon';
+

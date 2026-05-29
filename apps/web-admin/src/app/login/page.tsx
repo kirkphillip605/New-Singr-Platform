@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/lib/auth-client";
-import { GlassCard, GlassButton, GlassInput } from "@singr/ui";
+import { GlassCard, GlassButton, GlassInput, SingrLogo } from "@singr/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,8 +40,14 @@ export default function LoginPage() {
       <GlassCard className="p-10 max-w-md w-full relative overflow-hidden" hoverable={false}>
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 to-red-400" />
         
+        <div className="flex flex-col items-center gap-2 mb-6 mt-4">
+          <SingrLogo variant="white" className="h-9 w-auto object-contain" />
+          <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full font-sans">
+            Super-Admin
+          </span>
+        </div>
+        
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-white mb-2">🛡️ Super-Admin</h1>
           <p className="text-sm text-[var(--singr-text-secondary)] font-sans">
             Restricted access portal for platform administrators and customer support agents.
           </p>

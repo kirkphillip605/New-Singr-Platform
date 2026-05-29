@@ -87,6 +87,67 @@ async function sendMailjetEmail(opts: {
     return false;
   }
 }
+
+/**
+ * Reusable Twilio SMS sender.
+ * Logs every step for debugging: env check, client init, request payload, response.
+ */
+async function sendTwilioSms(opts: {
+  to: string;
+  body: string;
+  logLabel: string;
+}): Promise<boolean> {
+  const { to, body, logLabel } = opts;
+
+  console.log(`📱 [Twilio/${logLabel}] Preparing to send SMS to ${to}`);
+  console.log(`📱 [Twilio/${logLabel}] TWILIO_ACCOUNT_SID present: ${!!process.env.TWILIO_ACCOUNT_SID} (length: ${process.env.TWILIO_ACCOUNT_SID?.length || 0})`);
+  console.log(`📱 [Twilio/${logLabel}] TWILIO_AUTH_TOKEN present: ${!!process.env.TWILIO_AUTH_TOKEN} (length: ${process.env.TWILIO_AUTH_TOKEN?.length || 0})`);
+  console.log(`📱 [Twilio/${logLabel}] TWILIO_PHONE_NUMBER: ${process.env.TWILIO_PHONE_NUMBER || '(not set)'}`);
+
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    console.warn(`⚠️ [Twilio/${logLabel}] TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN is missing — skipping SMS send.`);
+    return false;
+  }
+
+  if (!process.env.TWILIO_PHONE_NUMBER) {
+    console.warn(`⚠️ [Twilio/${logLabel}] TWILIO_PHONE_NUMBER is not set — cannot send SMS without a sender number.`);
+    return false;
+  }
+
+  try {
+    console.log(`📱 [Twilio/${logLabel}] Importing twilio module...`);
+    const twilioModule = (await import('twilio')) as any;
+    const twilioConstructor = twilioModule.default || twilioModule;
+
+    if (typeof twilioConstructor !== 'function') {
+      console.error(`❌ [Twilio/${logLabel}] Could not find Twilio constructor. Type: ${typeof twilioConstructor}. Keys: ${Object.keys(twilioModule).join(', ')}`);
+      return false;
+    }
+
+    console.log(`📱 [Twilio/${logLabel}] Creating Twilio client...`);
+    const client = twilioConstructor(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+
+    console.log(`📱 [Twilio/${logLabel}] Sending SMS: to=${to}, from=${process.env.TWILIO_PHONE_NUMBER}, body_length=${body.length}`);
+    const message = await client.messages.create({
+      body,
+      to,
+      from: process.env.TWILIO_PHONE_NUMBER,
+    });
+
+    console.log(`✅ [Twilio/${logLabel}] SMS sent successfully to ${to}. SID: ${message.sid}, Status: ${message.status}`);
+    return true;
+  } catch (err: any) {
+    console.error(`❌ [Twilio/${logLabel}] Failed to send SMS to ${to}:`);
+    console.error(`❌ [Twilio/${logLabel}] Error message: ${err?.message || 'unknown'}`);
+    console.error(`❌ [Twilio/${logLabel}] Error code: ${err?.code || err?.status || 'unknown'}`);
+    console.error(`❌ [Twilio/${logLabel}] Full error:`, err);
+    return false;
+  }
+}
+
 import { redis } from './redis.js'
 
 // Load environment variables for local testing if not running from root dev script
@@ -161,10 +222,13 @@ async function syncUserSubscription(userId: string, status: 'active' | 'inactive
   }
 }
 
-// Log startup env state for debugging email sending
+// Log startup env state for debugging email/SMS sending
 console.log('🔧 [Auth Config] Initializing Better Auth...');
 console.log(`🔧 [Auth Config] MAILJET_API_KEY present: ${!!process.env.MAILJET_API_KEY}`);
 console.log(`🔧 [Auth Config] MAILJET_API_SECRET present: ${!!process.env.MAILJET_API_SECRET}`);
+console.log(`🔧 [Auth Config] TWILIO_ACCOUNT_SID present: ${!!process.env.TWILIO_ACCOUNT_SID}`);
+console.log(`🔧 [Auth Config] TWILIO_AUTH_TOKEN present: ${!!process.env.TWILIO_AUTH_TOKEN}`);
+console.log(`🔧 [Auth Config] TWILIO_PHONE_NUMBER: ${process.env.TWILIO_PHONE_NUMBER || '(not set)'}`);
 console.log(`🔧 [Auth Config] BETTER_AUTH_URL: ${process.env.BETTER_AUTH_URL}`);
 console.log(`🔧 [Auth Config] NODE_ENV: ${process.env.NODE_ENV}`);
 
@@ -367,58 +431,37 @@ export const auth = betterAuth({
     }),
     twoFactor({
       otpOptions: {
-        sendOTP: async ({ user, otp }) => {
+        sendOTP: async ({ user, otp }: any) => {
           const userPhone = (user as any).phoneNumber;
+          console.log(`📱 [twoFactor.sendOTP] TRIGGERED for user ${user.email}`);
+          console.log(`📱 [twoFactor.sendOTP] Phone on record: ${userPhone || '(none)'}`);
+          console.log(`📱 [twoFactor.sendOTP] OTP code: ${otp}`);
+
           if (!userPhone) {
-            console.error('❌ Cannot send 2FA OTP: User does not have a phone number.')
-            return
+            console.error('❌ [twoFactor.sendOTP] Cannot send 2FA OTP: User does not have a phone number on record.');
+            return;
           }
-          console.log(`📱 2FA SMS OTP requested for ${userPhone}: ${otp}`)
-          if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-            try {
-              const twilioModule = (await import('twilio')) as any
-              const twilioClient = twilioModule.default || twilioModule
-              const client = twilioClient(
-                process.env.TWILIO_ACCOUNT_SID,
-                process.env.TWILIO_AUTH_TOKEN
-              )
-              await client.messages.create({
-                body: `Your Singr 2FA security code is: ${otp}. Do not share this code.`,
-                to: userPhone,
-                from: process.env.TWILIO_PHONE_NUMBER || '+1234567890',
-              })
-              console.log(`✅ 2FA SMS OTP sent successfully via Twilio to ${userPhone}`)
-            } catch (err) {
-              console.error('❌ Failed to send 2FA SMS OTP via Twilio:', err)
-            }
-          }
-        }
-      }
+
+          await sendTwilioSms({
+            to: userPhone,
+            body: `Your Singr 2FA security code is: ${otp}. Do not share this code.`,
+            logLabel: '2FA-OTP',
+          });
+        },
+      },
     }),
     admin(),
     anonymous(),
     phoneNumber({
-      sendOTP: async ({ phoneNumber, code }) => {
-        console.log(`📱 SMS OTP requested for ${phoneNumber}: ${code}`)
-        // If Twilio is configured, we will send SMS via Twilio SDK
-        if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-          try {
-            const twilioModule = (await import('twilio')) as any
-            const twilioClient = twilioModule.default || twilioModule
-            const client = twilioClient(
-              process.env.TWILIO_ACCOUNT_SID,
-              process.env.TWILIO_AUTH_TOKEN
-            )
-            await client.messages.create({
-              body: `Your Singr verification code is: ${code}. It expires in 5 minutes.`,
-              to: phoneNumber,
-              from: process.env.TWILIO_PHONE_NUMBER || '+1234567890',
-            })
-            console.log(`✅ SMS OTP sent successfully via Twilio to ${phoneNumber}`)
-          } catch (err) {
-            console.error('❌ Failed to send SMS OTP via Twilio:', err)
-          }
-        }
+      sendOTP: async ({ phoneNumber: phone, code }: any) => {
+        console.log(`📱 [phoneNumber.sendOTP] TRIGGERED for ${phone}`);
+        console.log(`📱 [phoneNumber.sendOTP] Verification code: ${code}`);
+
+        await sendTwilioSms({
+          to: phone,
+          body: `Your Singr verification code is: ${code}. It expires in 5 minutes.`,
+          logLabel: 'PhoneVerification-OTP',
+        });
       },
     }),
     stripe({

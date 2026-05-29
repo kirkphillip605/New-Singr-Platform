@@ -7,46 +7,124 @@ const hostPortalUrl = import.meta.env.PUBLIC_HOST_PORTAL_URL || "https://host.si
 
 <Layout title="For Hosts — Singr Karaoke">
   <section class="py-12">
+    <!-- Hero / Header -->
     <div class="max-w-3xl mx-auto text-center mb-16">
       <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-3 block">Professional Grade Business Software</span>
       <h1 class="text-4xl md:text-6xl font-extrabold text-white mb-6">Designed for Professional KJs</h1>
       <p class="text-base md:text-lg text-[var(--singr-text-secondary)] font-sans font-light leading-relaxed">
-        Singr gives you everything you need to run your karaoke shows smoothly. Say goodbye to chaotic paper lists and outdated tech, and welcome a beautiful, cohesive, and high-performance workflow.
+        The Singr Host Portal is a comprehensive, multi-tenant cloud platform built on modern, resilient frameworks. It is designed to handle everything from independent single-rig operators to large entertainment agencies running multi-venue, multi-system fleets.
       </p>
     </div>
 
-    <!-- Features Breakdown -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-      <GlassCard className="p-8">
-        <h3 class="text-xl font-bold text-white mb-4">Drag-and-Drop Queue</h3>
-        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
-          Reorder singer lists instantly. Mark songs as played or cancel requests, and watch the singer's app update their expected queue position within milliseconds.
-        </p>
-      </GlassCard>
+    <!-- Section 1: Core Architecture & Software Integration -->
+    <div class="mb-20">
+      <h2 class="text-2xl font-extrabold text-white mb-8 border-b border-[var(--singr-border)] pb-3 flex items-center gap-2">
+        <span class="text-[var(--singr-accent-primary)]">1.1</span> Core Architecture & Software Integration
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Direct OpenKJ Compatibility</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Singr serves as a modern, direct, out-of-the-box alternative to the defunct OKJSongbook.com service. It interfaces with the existing OpenKJ desktop software via a unique API key, instantly funneling digital singer requests straight to the OpenKJ requests screen.
+          </p>
+        </GlassCard>
 
-      <GlassCard className="p-8">
-        <h3 class="text-xl font-bold text-white mb-4">Multi-Venue CRUD</h3>
-        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
-          Whether you host at two bars or twenty, organize all venues, active shows, and schedules under one central account dashboard.
-        </p>
-      </GlassCard>
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Massive Library Support</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Built to comfortably sustain professional-grade catalogs exceeding 200,000 tracks. We utilize a smart, "shadow staging" pipeline, allowing hosts to trigger massive local library syncs without taking the host's song catalog offline.
+          </p>
+        </GlassCard>
 
-      <GlassCard className="p-8">
-        <h3 class="text-xl font-bold text-white mb-4">Hardware Integration</h3>
-        <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
-          Generate system API keys to link our lightweight desktop agent or legacy OpenKJ setup directly. Push thousands of songs to our cloud songbook via background workers.
-        </p>
-      </GlassCard>
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">The Singr Receiver Application</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            For alternative software, our Receiver app bridge provides full cross-platform capability. Accessible via web browsers, native desktop (macOS & Windows), and mobile apps, it features real-time requests with a one-click text copy tool, social features, messaging, and a song shop.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Integrated Song Store</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Supplement your song database with over 60,000 professional-quality tracks (plus 400 new tracks released monthly by karaoke-version.com). You'll always have the most up-to-date catalog since new tracks can be purchased and included in your database instantly.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Manual Song Request</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            If enabled, Singr allows singers to manually type in an artist and title when their song isn't found (e.g., misremembered titles like "Small Town Girl"). Even when the singer gets it wrong, the host can make it right.
+          </p>
+        </GlassCard>
+      </div>
+    </div>
+
+    <!-- Section 2: Fleet & Venue Fleet Management -->
+    <div class="mb-20">
+      <h2 class="text-2xl font-extrabold text-white mb-8 border-b border-[var(--singr-border)] pb-3 flex items-center gap-2">
+        <span class="text-[var(--singr-accent-primary)]">1.2</span> Fleet & Venue Fleet Management
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Multi-Rig Capable</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Track, monitor, and configure multiple physical hardware setups from a single master host account. Systems are the physical karaoke systems used by the karaoke host. Whether you have one or ten, easily keep track of all active systems in the fleet.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Delegated Team Access</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Grant access to the host control panel for assistant hosts and DJs. These users can manage systems, schedules, and databases without gaining access to core API keys, system credentials, or subscription billing settings.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Venue Details via Google APIs</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Eradicate manual location entry. The dashboard links directly to Google APIs to instantly auto-populate precise public venue metadata (addresses, geolocations, business hours, and phone numbers), syncing changes automatically.
+          </p>
+        </GlassCard>
+      </div>
+    </div>
+
+    <!-- Section 3: Pricing, Support, & Customization -->
+    <div class="mb-20">
+      <h2 class="text-2xl font-extrabold text-white mb-8 border-b border-[var(--singr-border)] pb-3 flex items-center gap-2">
+        <span class="text-[var(--singr-accent-primary)]">1.3</span> Pricing, Support, & Custom App Branding
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">One Plan, Unlimited Everything</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Other apps allow only one active show per subscription. Singr has only one plan which includes Unlimited Rigs, Unlimited Shows, Unlimited Songs, and Unlimited Updates. Run as many shows as you want on as many systems as you want.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Premium Onboarding Assistance</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Karaoke businesses can receive live implementation support from a US-based technician to help get everything set up and ready to rock & roll. We will make sure you are set up to succeed using Singr.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Custom App Branding (White-Label)</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            For premium entertainment operations, Singr can be fully re-skinned. Deploy a dedicated custom-branded PWA, alongside independent native mobile apps published under your own brand and logo in the App Store and Google Play Store.
+          </p>
+        </GlassCard>
+      </div>
     </div>
 
     <!-- CTA Section -->
-    <div class="mt-20 text-center">
+    <div class="text-center">
       <GlassCard className="p-10 max-w-2xl mx-auto">
         <h2 class="text-3xl font-extrabold text-white mb-4">Elevate Your Show Quality</h2>
         <p class="text-sm text-[var(--singr-text-secondary)] font-sans mb-8 leading-relaxed">
           Ready to try the most sophisticated karaoke host portal on the market? Join our Stripe sandbox trial program and start hosting tonight.
         </p>
-        <a href={`${hostPortalUrl}/login`} class="decoration-none">
+        <a href={`${hostPortalUrl}/signup`} class="decoration-none">
           <GlassButton variant="primary" className="px-8 py-3 text-sm">
             Access Host Portal
           </GlassButton>

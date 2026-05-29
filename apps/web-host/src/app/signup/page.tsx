@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, signIn, authClient, useSession } from "@/lib/auth-client";
-import { GlassCard, GlassButton, GlassInput } from "@singr/ui";
+import { GlassCard, GlassButton, GlassInput, SingrLogo } from "@singr/ui";
 import { Check, Mail, ArrowRight, CreditCard } from "lucide-react";
 import { formatE164 } from "@singr/shared";
 
@@ -23,7 +23,7 @@ interface Tier {
 function SignupWizardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { data: session, isPending: sessionLoading, refetch } = useSession();
 
   // Determine current step from URL or state
   const stepParam = searchParams.get("step");
@@ -176,13 +176,32 @@ function SignupWizardContent() {
 
     const formattedPhone = formatE164(phoneNumber);
     try {
-      await (authClient.updateUser as any)({
-        name: `${firstName} ${lastName}`.trim(),
-        firstName,
-        lastName,
-        phoneNumber: formattedPhone,
-        businessName,
+      const response = await fetch(`${apiUrl}/api/v1/users/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          businessName,
+          phoneNumber: formattedPhone,
+        }),
+        credentials: "include",
       });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to update profile.");
+      }
+
+      // Force-refresh the session details to update cache
+      await authClient.getSession({
+        query: {
+          disableCookieCache: true,
+        }
+      });
+      await refetch();
 
       goToStep(3);
     } catch (err: any) {
@@ -229,6 +248,10 @@ function SignupWizardContent() {
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)]" style={{
           background: "var(--singr-brand-gradient)"
         }} />
+
+        <div className="flex justify-center mt-2 mb-8">
+          <SingrLogo variant="white" className="h-9 w-auto object-contain" />
+        </div>
 
         {/* Header Steps Progress */}
         <div className="flex justify-between items-center mb-8 px-4">

@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 
 export default function HostSettingsPage() {
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { data: session, isPending: sessionLoading, refetch } = useSession();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
   const [activeTab, setActiveTab] = useState<"profile" | "security">("profile");
   
   // Profile states
@@ -69,16 +70,33 @@ export default function HostSettingsPage() {
       const formattedPhone = formatE164(phoneNumber);
       setPhoneNumber(formattedPhone);
 
-      await authClient.updateUser({
-        name: `${firstName} ${lastName}`.trim(),
-        firstName,
-        lastName,
-        phoneNumber: formattedPhone,
-        businessName,
-      } as any);
+      const response = await fetch(`${apiUrl}/api/v1/users/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          businessName,
+          phoneNumber: formattedPhone,
+        }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to update profile.");
+      }
 
       // Re-fetch session to get updated details
-      const updated = await authClient.getSession();
+      const updated = await authClient.getSession({
+        query: {
+          disableCookieCache: true,
+        }
+      });
+      await refetch();
+      
       if (updated?.data?.user) {
         const u = updated.data.user as any;
         setPhoneVerified(!!u.phoneNumberVerified);

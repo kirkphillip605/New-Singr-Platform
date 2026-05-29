@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, authClient } from "@/lib/auth-client";
-import { GlassCard, GlassButton, GlassInput } from "@singr/ui";
+import { GlassCard, GlassButton, GlassInput, SingrLogo } from "@singr/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,6 +52,10 @@ export default function LoginPage() {
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)]" style={{
           background: "var(--singr-brand-gradient)"
         }} />
+        
+        <div className="flex justify-center mt-4 mb-6">
+          <SingrLogo variant="white" className="h-9 w-auto object-contain" />
+        </div>
         
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold text-white mb-2">

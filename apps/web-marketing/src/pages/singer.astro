@@ -7,55 +7,92 @@ const singerAppUrl = import.meta.env.PUBLIC_SINGER_APP_URL || "https://app.singr
 
 <Layout title="For Singers — Singr Karaoke">
   <section class="py-12">
+    <!-- Hero / Header -->
     <div class="max-w-3xl mx-auto text-center mb-16">
       <span class="text-xs font-bold uppercase tracking-widest text-[var(--singr-accent-secondary)] mb-3 block">Singers First Paradigm</span>
       <h1 class="text-4xl md:text-6xl font-extrabold text-white mb-6">Designed for Karaoke Vocalists</h1>
       <p class="text-base md:text-lg text-[var(--singr-text-secondary)] font-sans font-light leading-relaxed">
-        Say goodbye to heavy, dirty songbook binders and manual paper slips. Finding your favorite tracks and submitting requests has never been faster or more delightful.
+        The Singer ecosystem is designed to maximize engagement, streamline crowd rotation, and elevate the social aspect of a night out, providing a premium interactive experience directly from any smartphone.
       </p>
     </div>
 
-    <!-- Features Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
-      <GlassCard className="p-8 flex gap-6 items-start">
-        <div class="text-3xl">📍</div>
-        <div>
-          <h3 class="text-xl font-bold text-white mb-2">Nearby Shows Map</h3>
-          <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
-            Allow location access on your mobile web or native app to immediately list open, accepting shows within your area. Plot coordinates dynamically with our custom mapping integrations.
+    <!-- Section 1: Frictionless Usability & Show Discovery -->
+    <div class="mb-20">
+      <h2 class="text-2xl font-extrabold text-white mb-8 border-b border-[var(--singr-border)] pb-3 flex items-center gap-2">
+        <span class="text-[var(--singr-accent-secondary)]">2.1</span> Frictionless Usability & Show Discovery
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Frictionless Access</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Walk straight into a venue and interact with the platform immediately as a guest. There are no mandatory sign-up loops or gatekeeping mechanisms required to view the songbook or submit a song request.
           </p>
-        </div>
-      </GlassCard>
+        </GlassCard>
 
-      <GlassCard className="p-8 flex gap-6 items-start">
-        <div class="text-3xl">🔍</div>
-        <div>
-          <h3 class="text-xl font-bold text-white mb-2">Postgres Full-Text Search</h3>
-          <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
-            Never struggle finding misspelled artists or titles. Our GIN index search engine filters tens of thousands of tracks instantly as you type, supporting partial and fuzzy matches.
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Intelligent Account Merging</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            When a guest singer is ready to register a profile, it takes just a few clicks. Past song requests, saved favorites, and request history get linked to the new account automatically so they never miss a beat.
           </p>
-        </div>
-      </GlassCard>
+        </GlassCard>
 
-      <GlassCard className="p-8 flex gap-6 items-start">
-        <div class="text-3xl">⏱️</div>
-        <div>
-          <h3 class="text-xl font-bold text-white mb-2">WebSocket Queue Sync</h3>
-          <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
-            No more wandering up to the DJ booth to ask "How many people are ahead of me?". Your active request details your exact live position in the host's queue in real-time.
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Discover Nearby Shows</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Using location data, Singr displays nearby shows and events within close proximity, enabling instant access to venue information, directions, reviews, and interactive songbooks.
           </p>
-        </div>
-      </GlassCard>
+        </GlassCard>
+      </div>
+    </div>
 
-      <GlassCard className="p-8 flex gap-6 items-start">
-        <div class="text-3xl">⭐️</div>
-        <div>
-          <h3 class="text-xl font-bold text-white mb-2">Favorites & History</h3>
-          <p class="text-sm text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
-            Maintain your absolute best vocal roster. Add any catalog song to your persistent favorites list, review your requests history across multiple venues, and request key shifts (-6 to +6) in a click.
+    <!-- Section 2: Live Show Interaction -->
+    <div class="mb-20">
+      <h2 class="text-2xl font-extrabold text-white mb-8 border-b border-[var(--singr-border)] pb-3 flex items-center gap-2">
+        <span class="text-[var(--singr-accent-secondary)]">2.2</span> Live Show Interaction
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Private Show Gating</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            For wedding receptions, corporate parties, or pop-up private events, shows are hidden from the discovery map. Check in using a unique invite code generated by the host, or scan a QR code for automatic login.
           </p>
-        </div>
-      </GlassCard>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Check In & Geofencing</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Choose a nearby show or enter an invite code to begin. Hosts may configure geographical restrictions, preventing distant users from checking in to ensure only actual venue attendees have access.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Real-Time Rotation & Queue</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Track the live singer queue and rotation directly from the app. Knowing your position reduces queue anxiety and lets you grab drinks safely without worrying about missing your turn.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Show-Agnostic Favorites</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Registered singers can build a favorite songs catalog of their go-to tracks. These favorites are show-agnostic, meaning you can submit requests directly from your favorites list at any Singr show.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Virtual Round of Applause</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Audience members can send "virtual applause" to singers currently performing on stage, fostering crowd engagement. Flaunt your accumulated virtual applauses on your singer profile.
+          </p>
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <h3 class="text-lg font-bold text-white mb-3">Host Tipping Jar</h3>
+          <p class="text-xs text-[var(--singr-text-secondary)] font-sans leading-relaxed m-0">
+            Show appreciation for your host by sending tips direct to their Cash App, Venmo, PayPal, or crypto. Singr does not facilitate payments, ensuring hosts keep 100% of their tips without extra platform fees.
+          </p>
+        </GlassCard>
+      </div>
     </div>
 
     <!-- CTA Section -->
