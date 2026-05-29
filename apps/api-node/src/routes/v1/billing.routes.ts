@@ -281,4 +281,144 @@ router.post('/webhook', async (req: any, res) => {
   }
 })
 
+// 4. POST /v1/billing/verify-session — Synchronously verify and sync Stripe checkout session status
+router.post('/verify-session', requireAuth, async (req: AuthenticatedRequest, res) => {
+  const { sessionId } = req.body
+
+  if (!sessionId) {
+    return res.status(400).json({
+      success: false,
+      message: 'sessionId is a required field in the request body.',
+    })
+  }
+
+  try {
+    console.log(`🔍 [verify-session] Verifying checkout session ${sessionId} for user ${req.user.email}`)
+    
+    // Retrieve checkout session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    
+    if (session.payment_status !== 'paid' && session.status !== 'complete') {
+      return res.status(400).json({
+        success: false,
+        message: 'Stripe checkout session has not been fully paid or completed.',
+        status: session.status,
+        paymentStatus: session.payment_status,
+      })
+    }
+
+    const stripeCustomerId = session.customer as string
+    const subscriptionId = session.subscription as string
+
+    if (!subscriptionId) {
+      return res.status(400).json({
+        success: false,
+        message: 'No subscription is associated with this checkout session.',
+      })
+    }
+
+    // Retrieve subscription from Stripe to get period dates and status
+    const stripeSub = (await stripe.subscriptions.retrieve(subscriptionId)) as any
+    const status = stripeSub.status
+    const subStatus = status === 'active' || status === 'trialing' ? 'active' : 'inactive'
+
+    const priceId = stripeSub.items.data[0]?.price.id
+    const tier = await prisma.subscriptionTier.findFirst({
+      where: { stripePriceId: priceId },
+    })
+    const planName = tier?.name || 'monthly'
+
+    // Update database inside transaction to prevent race conditions
+    await prisma.$transaction(async (tx) => {
+      // 1. Upsert Subscription table
+      const existingSub = await tx.subscription.findFirst({
+        where: { stripeSubscriptionId: subscriptionId },
+      })
+
+      const subData = {
+        plan: planName,
+        referenceId: req.user.id,
+        stripeCustomerId,
+        stripeSubscriptionId: subscriptionId,
+        status: status,
+        periodStart: new Date(stripeSub.current_period_start * 1000),
+        periodEnd: new Date(stripeSub.current_period_end * 1000),
+        trialStart: stripeSub.trial_start ? new Date(stripeSub.trial_start * 1000) : null,
+        trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
+        cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
+        cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
+        canceledAt: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000) : null,
+        endedAt: stripeSub.ended_at ? new Date(stripeSub.ended_at * 1000) : null,
+        billingInterval: stripeSub.items.data[0]?.price.recurring?.interval || 'month',
+        stripeScheduleId: (stripeSub.schedule as string) || null,
+      }
+
+      if (existingSub) {
+        await tx.subscription.update({
+          where: { id: existingSub.id },
+          data: subData,
+        })
+      } else {
+        await tx.subscription.create({
+          data: subData,
+        })
+      }
+
+      // 2. Upsert HostProfile
+      await tx.hostProfile.upsert({
+        where: { userId: req.user.id },
+        update: {
+          stripeCustomerId,
+          subscriptionStatus: subStatus,
+        },
+        create: {
+          userId: req.user.id,
+          stripeCustomerId,
+          subscriptionStatus: subStatus,
+        },
+      })
+
+      // 3. Grant host role in User table
+      const user = await tx.user.findUnique({
+        where: { id: req.user.id },
+      })
+
+      if (user) {
+        let updatedRoles = user.roles || []
+        if (subStatus === 'active') {
+          if (!updatedRoles.includes('host')) {
+            updatedRoles = [...updatedRoles, 'host']
+          }
+        } else {
+          updatedRoles = updatedRoles.filter((r) => r !== 'host')
+        }
+
+        if (updatedRoles.length === 0) {
+          updatedRoles = ['singer']
+        }
+
+        await tx.user.update({
+          where: { id: req.user.id },
+          data: { roles: updatedRoles },
+        })
+      }
+    })
+
+    console.log(`✅ [verify-session] Synced user subscription details successfully. status=${subStatus}`)
+
+    return res.status(200).json({
+      success: true,
+      message: 'Subscription session verified and synced.',
+      status: subStatus,
+    })
+  } catch (error: any) {
+    console.error('Error verifying Stripe session:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify checkout session.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
 export default router

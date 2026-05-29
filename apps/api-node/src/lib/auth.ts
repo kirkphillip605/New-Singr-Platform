@@ -474,14 +474,23 @@ export const auth = betterAuth({
           {
             name: 'monthly',
             priceId: 'price_1TOBKUEHv8jD9HNKuH9i3sEy',
+            freeTrial: {
+              days: 7,
+            },
           },
           {
             name: 'six_month',
             priceId: 'price_1TOBKVEHv8jD9HNKcXvrP2Po',
+            freeTrial: {
+              days: 7,
+            },
           },
           {
             name: 'annual',
             priceId: 'price_1TOBKVEHv8jD9HNKK0nTrlRV',
+            freeTrial: {
+              days: 14,
+            },
           },
         ],
         onSubscriptionComplete: async ({ event: _event, subscription, stripeSubscription: _stripeSubscription, plan: _plan }) => {

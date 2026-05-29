@@ -39,6 +39,35 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
     const checkOnboarding = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+        // Extract session_id query parameter if present (from Stripe redirect)
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get("session_id");
+        if (sessionId) {
+          console.log("Found Stripe checkout session_id in URL, verifying status...");
+          try {
+            const verifyRes = await fetch(`${apiUrl}/api/v1/billing/verify-session`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ sessionId }),
+              credentials: "include",
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              console.log("Subscription verified synchronously: active!");
+              // Clean URL parameter without page reload
+              const cleanUrl = window.location.pathname;
+              window.history.replaceState({}, document.title, cleanUrl);
+            } else {
+              console.error("Stripe session verification failed:", verifyData.message);
+            }
+          } catch (verifyErr) {
+            console.error("Error calling verify-session endpoint:", verifyErr);
+          }
+        }
+
         const res = await fetch(`${apiUrl}/api/v1/users/profile`, {
           credentials: "include",
         });

@@ -216,27 +216,27 @@ function SignupWizardContent() {
     setError("");
     setLoading(true);
 
+    let plan = "monthly";
+    if (priceId === "price_1TOBKVEHv8jD9HNKcXvrP2Po") plan = "six_month";
+    if (priceId === "price_1TOBKVEHv8jD9HNKK0nTrlRV") plan = "annual";
+
     try {
-      // Call backend to create checkout session
-      const res = await fetch(`${apiUrl}/api/v1/billing/checkout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ priceId }),
-        // Include credentials (cookies) for authenticated endpoints
-        credentials: "include",
+      const res = await authClient.subscription.upgrade({
+        plan,
+        successUrl: `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${window.location.origin}/signup?step=3`,
       });
 
-      const data = await res.json();
-      if (data.success && data.url) {
+      if (res?.error) {
+        setError(res.error.message || "Failed to initiate Stripe Checkout.");
+      } else if (res?.data?.url) {
         // Redirect to Stripe checkout
-        window.location.href = data.url;
+        window.location.href = res.data.url;
       } else {
-        setError(data.message || "Failed to initiate Stripe Checkout.");
+        setError("Failed to generate subscription checkout URL.");
       }
     } catch (err: any) {
-      setError("Failed to start subscription checkout. Is the API online?");
+      setError(err.message || "Failed to start subscription checkout. Is the API online?");
     } finally {
       setLoading(false);
     }
