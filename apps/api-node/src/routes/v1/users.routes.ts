@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { prisma, rawPrisma } from '@singr/db'
+import { prisma } from '@singr/db'
+import type { Prisma } from '@singr/db'
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js'
 import { auth } from '../../lib/auth.js'
@@ -14,17 +15,49 @@ const stripe = new Stripe(stripeSecretKey, {
 const router: Router = Router()
 
 // 1. GET /v1/users/history — Retrieve request history for current user
+//
+// Query params (all optional):
+//   - showId:      string   -> scope to a single show
+//   - hours:       number   -> only requests submitted within the last N hours
+//   - groupByShow: 'true'   -> return all processed requests grouped by show
+//
+// Always filters status='processed' and uses the soft-delete-aware `prisma`
+// client, so cancelled/soft-deleted requests are excluded and only genuinely
+// completed performances are returned.
+//
+// Response shapes:
+//   - ungrouped: { success: true, history: [...] }
+//   - grouped:   { success: true, groups: [{ show, requests: [...] }] }
 router.get('/history', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    // 1. Fetch user's requests (including soft-deleted ones since history needs them,
-    // but wait! prisma middleware automatically filters deletedAt: null unless we bypass it or use rawPrisma)
-    // Since the prisma softDelete extension filters deletedAt: null by default,
-    // to retrieve the user's FULL history (including processed/deleted requests),
-    // we should use rawPrisma!
-    const requests = await rawPrisma.request.findMany({
-      where: {
-        usersId: req.user.id,
-      },
+    const showId = typeof req.query.showId === 'string' ? req.query.showId : undefined
+    const groupByShow = req.query.groupByShow === 'true'
+    const hoursRaw = req.query.hours
+    const hours =
+      hoursRaw !== undefined && hoursRaw !== '' && !Number.isNaN(Number(hoursRaw))
+        ? Number(hoursRaw)
+        : undefined
+
+    // 1. Build the where clause. status='processed' and the user scope always apply.
+    const where: Prisma.RequestWhereInput = {
+      usersId: req.user.id,
+      status: 'processed',
+    }
+
+    // ?showId=<id> -> scope to a single show
+    if (!groupByShow && showId) {
+      where.showsId = showId
+    }
+
+    // ?showId=<id>&hours=N -> only requests submitted in the last N hours
+    if (!groupByShow && showId && hours !== undefined && hours > 0) {
+      where.submittedAt = {
+        gte: new Date(Date.now() - hours * 60 * 60 * 1000),
+      }
+    }
+
+    const requests = await prisma.request.findMany({
+      where,
       include: {
         song: {
           select: {
@@ -64,7 +97,7 @@ router.get('/history', requireAuth, async (req: AuthenticatedRequest, res) => {
     )
 
     // 3. Map requests and add isFavorite property
-    const history = requests.map((reqItem) => {
+    const mapped = requests.map((reqItem) => {
       const artist = reqItem.song?.artist || ''
       const title = reqItem.song?.title || ''
       const isFavorite = favoritesSet.has(`${artist.toLowerCase()}||${title.toLowerCase()}`)
@@ -82,9 +115,31 @@ router.get('/history', requireAuth, async (req: AuthenticatedRequest, res) => {
       }
     })
 
+    // ?groupByShow=true -> group every processed request by its show
+    if (groupByShow) {
+      const groupMap = new Map<
+        string,
+        { show: { id: string; showName: string | null; slug: string | null }; requests: typeof mapped }
+      >()
+
+      for (const item of mapped) {
+        if (!item.show) continue
+        const key = item.show.id
+        if (!groupMap.has(key)) {
+          groupMap.set(key, { show: item.show, requests: [] })
+        }
+        groupMap.get(key)!.requests.push(item)
+      }
+
+      return res.status(200).json({
+        success: true,
+        groups: Array.from(groupMap.values()),
+      })
+    }
+
     return res.status(200).json({
       success: true,
-      history,
+      history: mapped,
     })
   } catch (error: any) {
     console.error('Error fetching user history:', error)
@@ -98,6 +153,14 @@ router.get('/history', requireAuth, async (req: AuthenticatedRequest, res) => {
 
 // 2. GET /v1/users/favorites — List all favorites for current user
 router.get('/favorites', requireAuth, async (req: AuthenticatedRequest, res) => {
+  // Favorites are a registered-users-only feature.
+  if (req.user.isAnonymous) {
+    return res.status(403).json({
+      success: false,
+      message: 'Favorites are only available to registered users. Please create a free account.',
+    })
+  }
+
   try {
     const favorites = await prisma.favorite.findMany({
       where: {
@@ -125,6 +188,14 @@ router.get('/favorites', requireAuth, async (req: AuthenticatedRequest, res) => 
 
 // 3. POST /v1/users/favorites — Add a song to favorites
 router.post('/favorites', requireAuth, async (req: AuthenticatedRequest, res) => {
+  // Favorites are a registered-users-only feature.
+  if (req.user.isAnonymous) {
+    return res.status(403).json({
+      success: false,
+      message: 'Favorites are only available to registered users. Please create a free account.',
+    })
+  }
+
   const { artist, title } = req.body
 
   if (!artist || !title) {

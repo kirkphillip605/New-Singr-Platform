@@ -1,6 +1,8 @@
 import React from 'react';
 import { useStore, f7 } from 'framework7-react';
 import store from '../lib/store';
+import { useSession } from '../lib/auth-client';
+import { addFavorite, removeFavorite } from '../lib/api';
 
 export interface SongItem {
   songId: string;
@@ -13,27 +15,85 @@ interface SongListProps {
   onSongTap: (song: SongItem) => void;
 }
 
+const sameSong = (a: { artist: string; title: string }, b: { artist: string; title: string }) =>
+  a.artist?.toLowerCase() === b.artist?.toLowerCase() && a.title?.toLowerCase() === b.title?.toLowerCase();
+
+function promptRegistration() {
+  f7.dialog
+    .create({
+      title: 'Save your favorites',
+      text: 'Favorites are for registered members — creating an account is free. Sign up to save songs for quick access.',
+      buttons: [
+        { text: 'Not now' },
+        {
+          text: 'Create Account',
+          bold: true,
+          onClick: () => {
+            // Ask the profile panel to switch into sign-up mode, then open it.
+            window.dispatchEvent(new CustomEvent('singr:open-signup'));
+            f7.panel.open('right');
+          },
+        } as any,
+      ],
+    })
+    .open();
+}
+
 export default function SongList({ songs, onSongTap }: SongListProps) {
-  const favorites = useStore('favorites') || [];
+  const favorites = (useStore('favorites') || []) as any[];
+  const { data: session } = useSession();
+  const isRegistered = !!session?.user && !(session.user as any).isAnonymous;
 
   if (!songs || songs.length === 0) return null;
 
-  const handleFavoriteClick = (e: React.MouseEvent, song: SongItem) => {
+  const handleFavoriteClick = async (e: React.MouseEvent, song: SongItem) => {
     e.stopPropagation();
-    const isFav = favorites.some((fav: any) => fav.songId === song.songId);
-    store.dispatch('toggleFavorite', song);
 
-    f7.toast.create({
-      text: isFav ? `Removed "${song.title}" from favorites` : `Added "${song.title}" to favorites ❤️`,
-      position: 'bottom',
-      closeTimeout: 1500,
-    }).open();
+    if (!isRegistered) {
+      promptRegistration();
+      return;
+    }
+
+    const existing = favorites.find((fav) => sameSong(fav, song));
+
+    try {
+      if (existing) {
+        await removeFavorite(existing.id);
+        store.dispatch(
+          'setFavorites',
+          favorites.filter((fav) => fav.id !== existing.id)
+        );
+        f7.toast.create({
+          text: `Removed "${song.title}" from favorites`,
+          position: 'bottom',
+          closeTimeout: 1500,
+        }).open();
+      } else {
+        const fav = await addFavorite(song.artist, song.title);
+        store.dispatch('setFavorites', [
+          ...favorites,
+          { id: fav.id, artist: song.artist, title: song.title },
+        ]);
+        f7.toast.create({
+          text: `Added "${song.title}" to favorites ❤️`,
+          position: 'bottom',
+          closeTimeout: 1500,
+        }).open();
+      }
+    } catch (err: any) {
+      console.error('Failed to update favorite:', err);
+      f7.toast.create({
+        text: err?.message || 'Could not update favorites. Please try again.',
+        position: 'bottom',
+        closeTimeout: 2000,
+      }).open();
+    }
   };
 
   return (
     <div className="song-list">
       {songs.map((song, index) => {
-        const isFav = favorites.some((fav: any) => fav.songId === song.songId);
+        const isFav = favorites.some((fav) => sameSong(fav, song));
         return (
           <div
             key={`${song.songId}-${index}`}

@@ -12,6 +12,7 @@ export default function SearchPage() {
   const searchCount = useStore('searchCount') as number || 0;
   const searchLoading = useStore('searchLoading') as boolean || false;
   const searchQuery = useStore('searchQuery') as string || '';
+  const searchPrefill = useStore('searchPrefill') as string || '';
 
   const [inputValue, setInputValue] = useState(searchQuery);
   const debounceRef = useRef<any>(null);
@@ -59,6 +60,14 @@ export default function SearchPage() {
       setInputValue('');
     }
   }, [searchQuery]);
+
+  // Handle an externally-set prefill query (e.g. from tapping a favorite).
+  // Populate the input and auto-run the search, then clear the prefill flag.
+  useEffect(() => {
+    if (!searchPrefill) return;
+    handleSearch(searchPrefill);
+    store.dispatch('clearSearchPrefill', undefined);
+  }, [searchPrefill, handleSearch]);
 
   return (
     <Page name="search" className="search-page">

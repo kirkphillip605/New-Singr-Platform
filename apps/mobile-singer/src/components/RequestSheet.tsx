@@ -101,7 +101,6 @@ export default function RequestSheet({ opened, song, onClose }: RequestSheetProp
     const songId = song.songId;
     const showId = checkedInVenue.id;
     const songTitle = song.title;
-    const songArtist = song.artist;
 
     const doSubmit = async () => {
       setLoading(true);
@@ -109,28 +108,6 @@ export default function RequestSheet({ opened, song, onClose }: RequestSheetProp
         const result = await submitRequest(showId, songId, singerName, keyChange);
 
         if (result.success) {
-          // Save request to local history in storage
-          const historySaved = localStorage.getItem('singr_request_history');
-          let historyItems = [];
-          if (historySaved) {
-            try {
-              historyItems = JSON.parse(historySaved);
-            } catch {
-              historyItems = [];
-            }
-          }
-          const record = {
-            id: `req-${Date.now()}`,
-            songTitle,
-            songArtist,
-            venueName: checkedInVenue.name,
-            submittedAt: new Date().toISOString(),
-            keyChange,
-          };
-          localStorage.setItem('singr_request_history', JSON.stringify([record, ...historyItems]));
-          // Dispatch storage event to alert UI
-          window.dispatchEvent(new Event('storage'));
-
           onClose(); // Close sheet on success
           f7.toast.create({
             text: `Request for "${songTitle}" submitted! 🎤`,

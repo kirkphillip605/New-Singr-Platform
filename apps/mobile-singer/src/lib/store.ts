@@ -3,19 +3,21 @@ import { createStore } from 'framework7/lite';
 const SINGER_STORAGE_KEY = 'vibe_singer_name';
 const VENUE_ID_STORAGE_KEY = 'vibe_venue_url_name';
 const VENUE_OBJECT_STORAGE_KEY = 'vibe_checked_in_venue';
-const FAVORITES_STORAGE_KEY = 'vibe_favorites';
 
 const store = createStore({
   state: {
     venueUrlName: localStorage.getItem(VENUE_ID_STORAGE_KEY) || '',
     checkedInVenue: JSON.parse(localStorage.getItem(VENUE_OBJECT_STORAGE_KEY) || 'null'),
     singerName: localStorage.getItem(SINGER_STORAGE_KEY) || '',
-    favorites: JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) || '[]'),
-    
+    // Backend-synced favorites: array of { id, artist, title }
+    favorites: [],
+
     searchResults: [],
     searchCount: 0,
     searchLoading: false,
     searchQuery: '',
+    // Pending prefill query (e.g. set by tapping a favorite) to auto-run on the Search tab
+    searchPrefill: '',
     
     requestLoading: false,
     requestSuccess: false,
@@ -49,6 +51,9 @@ const store = createStore({
     searchQuery({ state }: any) {
       return state.searchQuery;
     },
+    searchPrefill({ state }: any) {
+      return state.searchPrefill;
+    },
     requestLoading({ state }: any) {
       return state.requestLoading;
     },
@@ -80,16 +85,14 @@ const store = createStore({
       state.searchCount = 0;
       state.searchQuery = '';
     },
-    toggleFavorite({ state }: any, song: any) {
-      const idx = state.favorites.findIndex((s: any) => s.songId === song.songId);
-      let newFavorites;
-      if (idx >= 0) {
-        newFavorites = state.favorites.filter((s: any) => s.songId !== song.songId);
-      } else {
-        newFavorites = [...state.favorites, song];
-      }
-      state.favorites = newFavorites;
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(state.favorites));
+    setFavorites({ state }: any, favorites: any[]) {
+      state.favorites = Array.isArray(favorites) ? favorites : [];
+    },
+    setSearchPrefill({ state }: any, query: string) {
+      state.searchPrefill = query || '';
+    },
+    clearSearchPrefill({ state }: any) {
+      state.searchPrefill = '';
     },
     openRequestSheet({ state }: any, song: any) {
       state.requestSheetSong = song;

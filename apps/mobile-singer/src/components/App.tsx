@@ -12,7 +12,6 @@ import {
   NavTitle,
   NavRight,
   Popup,
-  Block,
   Preloader,
   f7,
   useStore,
@@ -20,18 +19,9 @@ import {
 import routes from '../lib/routes';
 import store from '../lib/store';
 import RequestSheet from './RequestSheet';
+import RequestHistory from './RequestHistory';
+import { getFavorites } from '../lib/api';
 import { useSession, signOut, signIn, signUp, authClient } from '../lib/auth-client';
-
-const SINGER_HISTORY_KEY = 'singr_request_history';
-
-interface HistoryRecord {
-  id: string;
-  songTitle: string;
-  songArtist: string;
-  venueName: string;
-  submittedAt: string;
-  keyChange: number;
-}
 
 const LeftPanelContent = ({ onOpenHistory }: { onOpenHistory: () => void }) => {
   const checkedInVenue = useStore('checkedInVenue') as any;
@@ -130,6 +120,14 @@ const ProfilePanelContent = () => {
   useEffect(() => {
     setSingerInput(singerName || '');
   }, [singerName]);
+
+  // Allow other parts of the app (e.g. the favorites registration prompt) to
+  // open this panel directly into sign-up mode.
+  useEffect(() => {
+    const handleOpenSignup = () => setIsSignUp(true);
+    window.addEventListener('singr:open-signup', handleOpenSignup);
+    return () => window.removeEventListener('singr:open-signup', handleOpenSignup);
+  }, []);
 
   const handleSaveName = async () => {
     store.dispatch('setSingerName', singerInput.trim());
@@ -396,6 +394,43 @@ const ProfilePanelContent = () => {
 const AppContent = () => {
   const requestSheetOpen = useStore('requestSheetOpen');
   const requestSheetSong = useStore('requestSheetSong');
+  const { data: session, isPending } = useSession();
+  const [anonAttempted, setAnonAttempted] = useState(false);
+
+  const isRegistered = !!session?.user && !(session.user as any).isAnonymous;
+
+  // Bootstrap an anonymous Better Auth session on load so requests/history work
+  // for users who have not signed in. Guarded so it only fires once.
+  useEffect(() => {
+    if (isPending) return;
+    if (session) return;
+    if (anonAttempted) return;
+
+    setAnonAttempted(true);
+    authClient.signIn.anonymous().catch((err: any) => {
+      console.error('Failed to bootstrap anonymous session:', err);
+    });
+  }, [isPending, session, anonAttempted]);
+
+  // Keep the store's favorites in sync with the backend for registered users.
+  // Anonymous users have no favorites (registered-only feature).
+  useEffect(() => {
+    if (isPending) return;
+    if (isRegistered) {
+      getFavorites()
+        .then((favs) => {
+          store.dispatch(
+            'setFavorites',
+            favs.map((f) => ({ id: f.id, artist: f.artist, title: f.title }))
+          );
+        })
+        .catch((err) => {
+          console.error('Failed to load favorites:', err);
+        });
+    } else {
+      store.dispatch('setFavorites', []);
+    }
+  }, [isPending, isRegistered]);
 
   return (
     <>
@@ -462,34 +497,8 @@ const AppContent = () => {
 
 export default function AppContainer() {
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyItems, setHistoryItems] = useState<HistoryRecord[]>([]);
-
-  useEffect(() => {
-    // Intercept storage sync events to load local history
-    const loadHistory = () => {
-      const saved = localStorage.getItem(SINGER_HISTORY_KEY);
-      if (saved) {
-        try {
-          setHistoryItems(JSON.parse(saved));
-        } catch {
-          setHistoryItems([]);
-        }
-      }
-    };
-    loadHistory();
-    window.addEventListener('storage', loadHistory);
-    return () => window.removeEventListener('storage', loadHistory);
-  }, []);
 
   const handleOpenHistory = () => {
-    const saved = localStorage.getItem(SINGER_HISTORY_KEY);
-    if (saved) {
-      try {
-        setHistoryItems(JSON.parse(saved));
-      } catch {
-        setHistoryItems([]);
-      }
-    }
     setHistoryOpen(true);
   };
 
@@ -538,37 +547,8 @@ export default function AppContainer() {
               <Link iconF7="multiply" popupClose />
             </NavRight>
           </Navbar>
-          
-          <Block style={{ padding: '0 16px' }}>
-            {historyItems.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '64px 32px', color: 'var(--vibe-text-tertiary)' }}>
-                <i className="f7-icons" style={{ fontSize: '48px', marginBottom: '12px' }}>clock</i>
-                <div>No requests history found. Submit requests to track them here!</div>
-              </div>
-            ) : (
-              <div className="song-list" style={{ padding: 0 }}>
-                {historyItems.map((item) => (
-                  <div key={item.id} className="song-item" style={{ cursor: 'default' }}>
-                    <div className="favorite-btn" style={{ color: 'var(--vibe-accent)' }}>
-                      <i className="f7-icons">checkmark_circle_fill</i>
-                    </div>
-                    <div className="song-item-info">
-                      <div className="song-title">{item.songTitle}</div>
-                      <div className="song-artist" style={{ color: 'var(--vibe-text-secondary)' }}>
-                        {item.songArtist}
-                      </div>
-                      <div style={{ fontSize: '10px', color: 'var(--vibe-text-tertiary)', marginTop: '4px' }}>
-                        {item.venueName} • Pitch: {item.keyChange > 0 ? `+${item.keyChange}` : item.keyChange}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--vibe-text-tertiary)' }}>
-                      {new Date(item.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Block>
+
+          <RequestHistory active={historyOpen} />
         </Page>
       </Popup>
     </App>

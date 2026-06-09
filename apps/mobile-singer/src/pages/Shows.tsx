@@ -326,7 +326,9 @@ export default function ShowsPage() {
                   <div key={venue.venueId} className={`venue-card ${isActive ? 'active' : ''}`}>
                     <div className="venue-card-info">
                       <div className="venue-card-name-row">
-                        <span className="venue-name">{venue.name}</span>
+                        <span className="venue-name">
+                          {venue.showName}{venue.venueName ? ` @ ${venue.venueName}` : ''}
+                        </span>
                         {isActive && (
                           <span className="active-badge">
                             <i className="f7-icons">checkmark_alt</i>
@@ -335,7 +337,8 @@ export default function ShowsPage() {
                       </div>
                       <div className="venue-distance">
                         <i className="f7-icons">placemark</i>
-                        {venue.distance.toFixed(1)} miles away ({venue.venueName})
+                        {venue.city && venue.state ? `${venue.city}, ${venue.state} - ` : ''}
+                        {venue.distance.toFixed(1)} Miles Away
                       </div>
                     </div>
 

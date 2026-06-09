@@ -57,14 +57,18 @@ export interface QueueRequest {
  * Get nearby public active shows based on lat/lon coordinates.
  */
 export async function getNearbyVenues(latitude: number, longitude: number, rangeMiles = 25): Promise<any[]> {
-  const data = await apiFetch(`/v1/shows/nearby?lat=${latitude}&lon=${longitude}&radius=${rangeMiles}`);
+  const data = await apiFetch(`/api/v1/shows/nearby?lat=${latitude}&lon=${longitude}&radius=${rangeMiles}`);
   return (data.shows || []).map((s: any) => ({
     venueId: s.slug,
+    slug: s.slug,
+    id: s.id,
     name: s.showName,
+    showName: s.showName,
     venueName: s.venueName,
+    city: s.city,
+    state: s.state,
     distance: s.distance || 0,
     accepting: s.isAccepting,
-    id: s.id,
   }));
 }
 
@@ -77,7 +81,7 @@ export async function joinShow(slug: string, pinCode?: string): Promise<{ succes
     if (pinCode) {
       payload.pin_code = pinCode;
     }
-    const data = await apiFetch(`/v1/shows/${slug}/join`, {
+    const data = await apiFetch(`/api/v1/shows/${slug}/join`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -100,7 +104,7 @@ export async function joinShow(slug: string, pinCode?: string): Promise<{ succes
  * Search the show's catalog of songs.
  */
 export async function searchSongs(slug: string, query: string): Promise<{ songs: Song[]; songCount: number }> {
-  const data = await apiFetch(`/v1/shows/${slug}/catalog?q=${encodeURIComponent(query)}&limit=50`);
+  const data = await apiFetch(`/api/v1/shows/${slug}/catalog?q=${encodeURIComponent(query)}&limit=50`);
   return {
     songCount: data.pagination?.total || 0,
     songs: (data.songs || []).map((s: any) => ({
@@ -116,7 +120,7 @@ export async function searchSongs(slug: string, query: string): Promise<{ songs:
  */
 export async function submitRequest(showId: string, songId: string, singerName: string, keyChange: number): Promise<{ success: boolean; error?: string }> {
   try {
-    const data = await apiFetch(`/v1/requests`, {
+    const data = await apiFetch(`/api/v1/requests`, {
       method: 'POST',
       body: JSON.stringify({
         showId,
@@ -140,6 +144,88 @@ export async function submitRequest(showId: string, songId: string, singerName: 
  * Get active requests queue (for Live view).
  */
 export async function getLiveQueue(showId: string): Promise<QueueRequest[]> {
-  const data = await apiFetch(`/v1/requests?showId=${showId}`);
+  const data = await apiFetch(`/api/v1/requests?showId=${showId}`);
   return data.requests || [];
+}
+
+export interface Favorite {
+  id: string;
+  usersId?: string;
+  artist: string;
+  title: string;
+  createdAt?: string;
+}
+
+export interface HistoryItem {
+  id: string;
+  legacyId?: string | null;
+  singerName: string;
+  keyChange: number;
+  status: string;
+  submittedAt: string;
+  song: { id: string; artist: string; title: string; brand?: string } | null;
+  show: { id: string; showName: string; slug: string } | null;
+  isFavorite: boolean;
+}
+
+export interface HistoryGroup {
+  show: { id: string; showName: string; slug: string };
+  requests: HistoryItem[];
+}
+
+/**
+ * Get the current user's favorites. Registered users only (backend returns 403 for anonymous).
+ */
+export async function getFavorites(): Promise<Favorite[]> {
+  const data = await apiFetch(`/api/v1/users/favorites`);
+  return data.favorites || [];
+}
+
+/**
+ * Add a song (by artist + title) to the current user's favorites.
+ */
+export async function addFavorite(artist: string, title: string): Promise<Favorite> {
+  const data = await apiFetch(`/api/v1/users/favorites`, {
+    method: 'POST',
+    body: JSON.stringify({ artist, title }),
+  });
+  return data.favorite;
+}
+
+/**
+ * Remove a favorite by its id.
+ */
+export async function removeFavorite(id: string): Promise<{ success: boolean }> {
+  const data = await apiFetch(`/api/v1/users/favorites/${id}`, {
+    method: 'DELETE',
+  });
+  return { success: data.success === true };
+}
+
+interface GetHistoryParams {
+  showId?: string;
+  hours?: number;
+  groupByShow?: boolean;
+}
+
+/**
+ * Get the current user's processed request history.
+ * - { showId, hours } -> recent processed for that show
+ * - { showId } -> all processed for that show
+ * - { groupByShow: true } -> all processed grouped by show
+ */
+export async function getHistory(
+  params: GetHistoryParams = {}
+): Promise<{ history?: HistoryItem[]; groups?: HistoryGroup[] }> {
+  const query = new URLSearchParams();
+  if (params.groupByShow) query.set('groupByShow', 'true');
+  if (params.showId) query.set('showId', params.showId);
+  if (params.hours) query.set('hours', String(params.hours));
+
+  const qs = query.toString();
+  const data = await apiFetch(`/api/v1/users/history${qs ? `?${qs}` : ''}`);
+  return {
+    history: data.history,
+    groups: data.groups,
+  };
 }

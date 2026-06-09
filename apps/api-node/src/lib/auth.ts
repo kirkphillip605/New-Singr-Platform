@@ -517,7 +517,43 @@ export const auth = betterAuth({
       },
     }),
     admin(),
-    anonymous(),
+    anonymous({
+      // When an anonymous user signs up / links a real account, Better Auth
+      // deletes the anonymous user (and `requests.usersId` would be SET NULL).
+      // Reassign the anonymous user's data to the new registered user so their
+      // request history (and any favorites) survive the upgrade.
+      onLinkAccount: async ({ anonymousUser, newUser }: any) => {
+        try {
+          const anonId = anonymousUser?.user?.id ?? anonymousUser?.id
+          const newId = newUser?.user?.id ?? newUser?.id
+
+          if (!anonId || !newId || anonId === newId) {
+            console.warn(
+              `[anonymous.onLinkAccount] Skipping migration — missing/identical ids (anon: ${anonId}, new: ${newId})`
+            )
+            return
+          }
+
+          const [requestsResult, favoritesResult] = await Promise.all([
+            prisma.request.updateMany({
+              where: { usersId: anonId },
+              data: { usersId: newId },
+            }),
+            prisma.favorite.updateMany({
+              where: { usersId: anonId },
+              data: { usersId: newId },
+            }),
+          ])
+
+          console.log(
+            `[anonymous.onLinkAccount] Migrated anon user ${anonId} -> ${newId}: ` +
+              `${requestsResult.count} request(s), ${favoritesResult.count} favorite(s)`
+          )
+        } catch (error) {
+          console.error('[anonymous.onLinkAccount] Failed to migrate anonymous user data:', error)
+        }
+      },
+    }),
     phoneNumber({
       sendOTP: async ({ phoneNumber: phone, code }: any) => {
         console.log(`📱 [phoneNumber.sendOTP] TRIGGERED for ${phone}`);
