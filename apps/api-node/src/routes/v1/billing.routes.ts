@@ -14,6 +14,26 @@ const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2026-05-27.dahlia',
 })
 
+// Safely convert a Stripe unix timestamp (in seconds) into a Date, or null when the
+// value is missing/invalid. Prevents `new Date(undefined * 1000)` -> Invalid Date crashes.
+const toDate = (unixSeconds: unknown): Date | null => {
+  if (typeof unixSeconds !== 'number' || !Number.isFinite(unixSeconds)) return null
+  const d = new Date(unixSeconds * 1000)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+// As of Stripe API 2026-05-27.dahlia, `current_period_start`/`current_period_end` live on the
+// subscription ITEM, not the subscription object. Read from the item with a top-level fallback.
+const getSubscriptionPeriod = (
+  stripeSub: any
+): { periodStart: Date | null; periodEnd: Date | null } => {
+  const item = stripeSub?.items?.data?.[0]
+  return {
+    periodStart: toDate(item?.current_period_start ?? stripeSub?.current_period_start),
+    periodEnd: toDate(item?.current_period_end ?? stripeSub?.current_period_end),
+  }
+}
+
 // 1. GET /v1/billing/tiers — List subscription tiers (Public, no auth needed or optional)
 router.get('/tiers', async (_req, res) => {
   try {
@@ -181,7 +201,8 @@ router.post('/webhook', async (req: any, res) => {
           subStatus = 'active'
         }
 
-        // Find user by stripeCustomerId
+        // Resolve the Singr account tied to this Stripe customer. If none matches, this
+        // customer isn't part of the host portal — acknowledge and skip gracefully.
         const user = await prisma.user.findFirst({
           where: {
             OR: [
@@ -192,83 +213,90 @@ router.post('/webhook', async (req: any, res) => {
           include: { hostProfile: true }
         })
 
-        if (user) {
-          const priceId = stripeSub.items?.data[0]?.price?.id
-          const tier = await prisma.subscriptionTier.findFirst({
-            where: { stripePriceId: priceId }
+        if (!user) {
+          console.log(`ℹ️ [webhook] No Singr account matches Stripe customer ${stripeCustomerId}; skipping ${event.type}.`)
+          return res.status(200).json({
+            received: true,
+            skipped: true,
+            message: `No Singr account is associated with Stripe customer ${stripeCustomerId}. Event acknowledged and ignored.`,
           })
-          const planName = tier?.name || 'monthly'
+        }
 
-          const subData = {
-            plan: planName,
-            referenceId: user.id,
+        // Only sync subscriptions whose price maps to a tier this app actually offers.
+        const priceId = stripeSub.items?.data?.[0]?.price?.id
+        const tier = await prisma.subscriptionTier.findFirst({
+          where: { stripePriceId: priceId }
+        })
+
+        if (!tier) {
+          console.log(`ℹ️ [webhook] Price ${priceId} is not a recognized Singr tier; skipping ${event.type}.`)
+          return res.status(200).json({
+            received: true,
+            skipped: true,
+            message: `Price ${priceId} does not correspond to a subscription tier used by this app. Event acknowledged and ignored.`,
+          })
+        }
+
+        const { periodStart, periodEnd } = getSubscriptionPeriod(stripeSub)
+
+        const subData = {
+          plan: tier.name,
+          referenceId: user.id,
+          stripeCustomerId,
+          stripeSubscriptionId: stripeSub.id,
+          status: status,
+          periodStart,
+          periodEnd,
+          trialStart: toDate(stripeSub.trial_start),
+          trialEnd: toDate(stripeSub.trial_end),
+          cancelAtPeriodEnd: stripeSub.cancel_at_period_end ?? false,
+          cancelAt: toDate(stripeSub.cancel_at),
+          canceledAt: toDate(stripeSub.canceled_at),
+          endedAt: toDate(stripeSub.ended_at),
+          billingInterval: stripeSub.items?.data?.[0]?.price?.recurring?.interval || 'month',
+          stripeScheduleId: (stripeSub.schedule as string) || null,
+        }
+
+        const existingSub = await prisma.subscription.findFirst({
+          where: { stripeSubscriptionId: stripeSub.id },
+        })
+
+        if (existingSub) {
+          await prisma.subscription.update({
+            where: { id: existingSub.id },
+            data: subData,
+          })
+        } else {
+          await prisma.subscription.create({
+            data: subData,
+          })
+        }
+
+        // Update HostProfile (this gates host CONSOLE features, not the host role itself).
+        await prisma.hostProfile.upsert({
+          where: { userId: user.id },
+          update: {
             stripeCustomerId,
-            stripeSubscriptionId: stripeSub.id,
-            status: status,
-            periodStart: new Date(stripeSub.current_period_start * 1000),
-            periodEnd: new Date(stripeSub.current_period_end * 1000),
-            trialStart: stripeSub.trial_start ? new Date(stripeSub.trial_start * 1000) : null,
-            trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
-            cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
-            cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
-            canceledAt: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000) : null,
-            endedAt: stripeSub.ended_at ? new Date(stripeSub.ended_at * 1000) : null,
-            billingInterval: stripeSub.items?.data[0]?.price?.recurring?.interval || 'month',
-            stripeScheduleId: (stripeSub.schedule as string) || null,
-          }
+            subscriptionStatus: subStatus,
+          },
+          create: {
+            userId: user.id,
+            stripeCustomerId,
+            subscriptionStatus: subStatus,
+          },
+        })
 
-          const existingSub = await prisma.subscription.findFirst({
-            where: { stripeSubscriptionId: stripeSub.id },
-          })
-
-          if (existingSub) {
-            await prisma.subscription.update({
-              where: { id: existingSub.id },
-              data: subData,
-            })
-          } else {
-            await prisma.subscription.create({
-              data: subData,
-            })
-          }
-
-          // Update HostProfile
-          await prisma.hostProfile.upsert({
-            where: { userId: user.id },
-            update: {
-              stripeCustomerId,
-              subscriptionStatus: subStatus,
-            },
-            create: {
-              userId: user.id,
-              stripeCustomerId,
-              subscriptionStatus: subStatus,
-            },
-          })
-
-          // Maintain roles bridge: grant/remove 'host' role based on active status
-          let updatedRoles = user.roles || []
-
-          if (subStatus === 'active') {
-            if (!updatedRoles.includes('host')) {
-              updatedRoles = [...updatedRoles, 'host']
-            }
-          } else {
-            updatedRoles = updatedRoles.filter((r) => r !== 'host')
-          }
-
-          // Fallback to singer if empty
-          if (updatedRoles.length === 0) {
-            updatedRoles = ['singer']
-          }
-
+        // The host role is owned by profile completion and must NOT be removed by billing
+        // state. Only add it as a safety net when a subscription is active.
+        const currentRoles = user.roles || []
+        if (subStatus === 'active' && !currentRoles.includes('host')) {
           await prisma.user.update({
             where: { id: user.id },
-            data: { roles: updatedRoles },
+            data: { roles: [...currentRoles, 'host'] },
           })
-
-          console.log(`✅ Updated subscription status for user ${user.email} to: ${subStatus}`)
         }
+
+        console.log(`✅ Synced subscription for user ${user.email}: status=${subStatus}, plan=${tier.name}`)
         break
       }
 
@@ -387,20 +415,22 @@ router.post('/verify-session', requireAuth, async (req: AuthenticatedRequest, re
         where: { stripeSubscriptionId: subscriptionId },
       })
 
+      const { periodStart, periodEnd } = getSubscriptionPeriod(stripeSub)
+
       const subData = {
         plan: planName,
         referenceId: req.user.id,
         stripeCustomerId,
         stripeSubscriptionId: subscriptionId,
         status: status,
-        periodStart: new Date(stripeSub.current_period_start * 1000),
-        periodEnd: new Date(stripeSub.current_period_end * 1000),
-        trialStart: stripeSub.trial_start ? new Date(stripeSub.trial_start * 1000) : null,
-        trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
-        cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
-        cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
-        canceledAt: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000) : null,
-        endedAt: stripeSub.ended_at ? new Date(stripeSub.ended_at * 1000) : null,
+        periodStart,
+        periodEnd,
+        trialStart: toDate(stripeSub.trial_start),
+        trialEnd: toDate(stripeSub.trial_end),
+        cancelAtPeriodEnd: stripeSub.cancel_at_period_end ?? false,
+        cancelAt: toDate(stripeSub.cancel_at),
+        canceledAt: toDate(stripeSub.canceled_at),
+        endedAt: toDate(stripeSub.ended_at),
         billingInterval: stripeSub.items.data[0]?.price.recurring?.interval || 'month',
         stripeScheduleId: (stripeSub.schedule as string) || null,
       }
@@ -435,24 +465,16 @@ router.post('/verify-session', requireAuth, async (req: AuthenticatedRequest, re
         where: { id: req.user.id },
       })
 
+      // The host role is owned by profile completion and must NOT be removed by billing
+      // state. Only add it as a safety net when the subscription is active.
       if (user) {
-        let updatedRoles = user.roles || []
-        if (subStatus === 'active') {
-          if (!updatedRoles.includes('host')) {
-            updatedRoles = [...updatedRoles, 'host']
-          }
-        } else {
-          updatedRoles = updatedRoles.filter((r) => r !== 'host')
+        const currentRoles = user.roles || []
+        if (subStatus === 'active' && !currentRoles.includes('host')) {
+          await tx.user.update({
+            where: { id: req.user.id },
+            data: { roles: [...currentRoles, 'host'] },
+          })
         }
-
-        if (updatedRoles.length === 0) {
-          updatedRoles = ['singer']
-        }
-
-        await tx.user.update({
-          where: { id: req.user.id },
-          data: { roles: updatedRoles },
-        })
       }
     })
 

@@ -47,11 +47,17 @@ function LoginContent() {
   useEffect(() => {
     const emailParam = searchParams.get("email");
     const statusParam = searchParams.get("status");
+    const noticeParam = searchParams.get("notice");
     if (emailParam) {
       setEmail(emailParam);
       if (statusParam === "exists") {
         setEmailStatus("verified");
       }
+    }
+    if (noticeParam === "verify-sent") {
+      setInfoMessage(
+        `A verification link was sent to ${emailParam || "your email"}. Click the link in your email to complete the sign up process.`
+      );
     }
   }, [searchParams]);
 
@@ -336,22 +342,28 @@ function LoginContent() {
     }
   };
 
-  // Resend verification link for unverified account auto-detected during login
+  // Resend verification link for unverified account auto-detected during login.
+  // Mirrors the signup flow: send the email, then return to the sign-in view with a notice.
   const handleResendVerification = async () => {
     setError("");
     setInfoMessage("");
     setLoading(true);
 
+    const targetEmail = email;
+
     try {
       const res = await (authClient as any).sendVerificationEmail({
-        email,
+        email: targetEmail,
         callbackURL: `${window.location.origin}/verify-email`,
       });
 
       if (res?.error) {
         setError(res.error.message || "Failed to send link.");
       } else {
-        setInfoMessage("A new verification link has been sent to your email.");
+        setEmailStatus("unchecked");
+        setInfoMessage(
+          `A verification link was sent to ${targetEmail}. Click the link in your email to complete the sign up process.`
+        );
       }
     } catch (err: any) {
       setError(err.message || "Failed to request link.");
@@ -594,15 +606,15 @@ function LoginContent() {
                   </div>
                 )}
 
-                {/* AUTO-DETECTION RESULT: UNVERIFIED ACCOUNT */}
+                {/* AUTO-DETECTION RESULT: UNVERIFIED ACCOUNT -> VERIFY YOUR EMAIL */}
                 {emailStatus === "unverified" && (
                   <div className="text-center py-4 font-sans">
                     <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-3 border border-amber-500/20">
                       <ShieldAlert className="w-5 h-5" />
                     </div>
-                    <h3 className="text-white font-bold text-base mb-1.5">Unverified Account</h3>
+                    <h3 className="text-white font-bold text-base mb-1.5">Verify Your Email</h3>
                     <p className="text-xs text-[var(--singr-text-secondary)] mb-6 max-w-xs mx-auto leading-relaxed">
-                      An account exists for <strong className="text-white">{email}</strong>, but the email address is unverified.
+                      Your account for <strong className="text-white">{email}</strong> isn't verified yet. Click the link in your email to finish signing up, or resend the verification link below.
                     </p>
                     <div className="flex flex-col gap-2.5 max-w-xs mx-auto">
                       <GlassButton
@@ -611,14 +623,7 @@ function LoginContent() {
                         className="w-full py-2.5 text-xs font-bold"
                         disabled={loading}
                       >
-                        Resend Verification Email
-                      </GlassButton>
-                      <GlassButton
-                        onClick={() => router.push(`/signup?step=1&email=${encodeURIComponent(email)}`)}
-                        variant="secondary"
-                        className="w-full py-2.5 text-xs font-bold"
-                      >
-                        Onboarding Pending Screen
+                        {loading ? "Sending..." : "Resend Verification Link"}
                       </GlassButton>
                       <GlassButton
                         onClick={() => setEmailStatus("unchecked")}

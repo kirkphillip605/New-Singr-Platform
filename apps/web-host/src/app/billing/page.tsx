@@ -197,19 +197,30 @@ export default function BillingPage() {
               
               <div className="flex-1">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-2 block font-sans">
-                  Active Console Ledger
+                  Singr Subscription
                 </span>
                 <h2 className="text-2xl font-extrabold text-white mb-2.5 flex items-center gap-2">
                   <ShieldCheck className="w-6.5 h-6.5 text-emerald-400" /> 
                   {activeSub.plan.toUpperCase().replace("_", " ")} Plan
+                  {activeSub.status === "trialing" && (
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[var(--singr-accent-primary)]/10 border border-[var(--singr-accent-primary)]/20 text-[var(--singr-accent-primary)]">
+                      Free Trial
+                    </span>
+                  )}
                 </h2>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 mt-4 font-sans text-xs text-[var(--singr-text-secondary)]">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5 text-[var(--singr-accent-primary)]" />
                     <span>
-                      {activeSub.status === "trialing" ? "Trial Period Ends:" : "Next Renewal Date:"}{" "}
-                      <strong className="text-white">{formatDate(activeSub.periodEnd)}</strong>
+                      {activeSub.status === "trialing" ? "Trial Ends / First Charge:" : "Next Renewal Date:"}{" "}
+                      <strong className="text-white">
+                        {formatDate(
+                          activeSub.status === "trialing"
+                            ? activeSub.trialEnd || activeSub.periodEnd
+                            : activeSub.periodEnd
+                        )}
+                      </strong>
                     </span>
                   </div>
                   

@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signUp, signIn, authClient, useSession, signOut } from "@/lib/auth-client";
+import { signUp, signIn, authClient, useSession } from "@/lib/auth-client";
 import { GlassCard, GlassButton, GlassInput, SingrLogo } from "@singr/ui";
-import { Check, Mail, ArrowRight, Sparkles, UserCheck } from "lucide-react";
+import { ArrowRight, Sparkles, UserCheck } from "lucide-react";
 
 function SignupWizardContent() {
   const router = useRouter();
@@ -36,20 +36,15 @@ function SignupWizardContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
-  const [verificationPending, setVerificationPending] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-  // Cooldown timer for resending verification link
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = setTimeout(() => {
-      setResendCooldown((prev) => prev - 1);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [resendCooldown]);
+  // After a verification email is sent, we route users back to the login page (with a
+  // notice) rather than keeping them on a pending screen.
+  const redirectToLoginVerify = (targetEmail: string) => {
+    router.replace(`/login?notice=verify-sent&email=${encodeURIComponent(targetEmail)}`);
+  };
 
   // Sync step with URL parameter
   useEffect(() => {
@@ -113,38 +108,13 @@ function SignupWizardContent() {
         }).catch((err) => {
           console.error("Failed to list user accounts:", err);
         });
-      } else {
-        // Logged in but email is not verified yet
-        setStep(1);
-        setEmail(user.email);
-        setVerificationPending(true);
+      } else if (!hasRedirected.current) {
+        // Logged in but email not verified yet (rare) — send them to login to verify.
+        hasRedirected.current = true;
+        redirectToLoginVerify(user.email);
       }
     }
   }, [session, sessionLoading, planParam]);
-
-  // Continuous polling on the verification-pending screen: when the user clicks the
-  // verification link (same browser shares the session cookie + autoSignInAfterVerification),
-  // emailVerified flips true and we auto-advance to step 2.
-  useEffect(() => {
-    if (!verificationPending || step !== 1) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await authClient.getSession({
-          query: { disableCookieCache: true },
-        });
-        if (res?.data?.user?.emailVerified) {
-          clearInterval(interval);
-          goToStep(2);
-        }
-      } catch {
-        // Network hiccup — keep polling silently.
-      }
-    }, 4000);
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verificationPending, step]);
 
   // Direct checkout routing helper
   const handleUpgradeDirectly = async (plan: string) => {
@@ -167,12 +137,6 @@ function SignupWizardContent() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const goToStep = (nextStep: number) => {
-    setStep(nextStep);
-    const planQuery = planParam ? `&plan=${planParam}` : "";
-    router.replace(`/signup?step=${nextStep}${planQuery}`);
   };
 
   // Step 1 Submit: Create account with Email + Password
@@ -223,7 +187,7 @@ function SignupWizardContent() {
           return;
         }
 
-        // Existing but unverified account -> resend the verification link
+        // Existing but unverified account -> resend the verification link, then route to login
         const resendRes = await authClient.sendVerificationEmail({
           email,
           callbackURL: `${window.location.origin}/verify-email`,
@@ -233,82 +197,27 @@ function SignupWizardContent() {
           throw new Error(resendRes.error.message || "Failed to resend verification link.");
         }
 
-        setInfoMessage("An unverified account already exists. We have sent a fresh verification link.");
-        setVerificationPending(true);
-      } else {
-        // Brand new account -> create it (defaults to the singer role; host is granted
-        // later on profile completion). Do NOT pass a host role here.
-        const res = await signUp.email({
-          email,
-          password,
-          name: "",
-          callbackURL: `${window.location.origin}/verify-email`,
-        } as any);
-
-        if (res?.error) {
-          throw new Error(res.error.message || "Failed to create account.");
-        }
-
-        setInfoMessage("Verification link sent! Check your inbox.");
-        setVerificationPending(true);
-      }
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Resend verification link
-  const handleResendLink = async () => {
-    if (resendCooldown > 0) return;
-    setError("");
-    setInfoMessage("");
-    setLoading(true);
-
-    try {
-      const activeEmail = email || session?.user?.email;
-      if (!activeEmail) {
-        throw new Error("No email address found to verify.");
+        redirectToLoginVerify(email);
+        return;
       }
 
-      const res = await authClient.sendVerificationEmail({
-        email: activeEmail,
+      // Brand new account -> create it (defaults to the singer role; host is granted
+      // later on profile completion). Do NOT pass a host role here.
+      const res = await signUp.email({
+        email,
+        password,
+        name: "",
         callbackURL: `${window.location.origin}/verify-email`,
-      });
+      } as any);
 
       if (res?.error) {
-        throw new Error(res.error.message || "Failed to resend verification email.");
+        throw new Error(res.error.message || "Failed to create account.");
       }
 
-      setInfoMessage("Verification link has been resent.");
-      setResendCooldown(60);
+      // Verification email sent on sign-up -> route back to login with a notice.
+      redirectToLoginVerify(email);
     } catch (err: any) {
-      setError(err.message || "Failed to resend link.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Manually check if verification completed
-  const handleCheckSessionVerification = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const res = await authClient.getSession({
-        query: {
-          disableCookieCache: true,
-        }
-      });
-      
-      if (res?.data?.user?.emailVerified) {
-        goToStep(2);
-      } else {
-        setError("Email is not verified yet. Please check your inbox and click the link.");
-      }
-    } catch (err: any) {
-      setError("Failed to fetch session. Please refresh the page.");
-    } finally {
+      setError(err.message || "An unexpected error occurred.");
       setLoading(false);
     }
   };
@@ -395,25 +304,6 @@ function SignupWizardContent() {
     }
   };
 
-  const handleStartOver = async () => {
-    setLoading(true);
-    try {
-      await signOut();
-      setVerificationPending(false);
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
-      setFirstName("");
-      setLastName("");
-      setBusinessName("");
-      goToStep(1);
-    } catch (err) {
-      console.error("Failed to sign out:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-[var(--singr-bg-primary)]">
       <GlassCard className="p-10 max-w-xl w-full relative overflow-hidden" hoverable={false}>
@@ -457,7 +347,7 @@ function SignupWizardContent() {
         )}
 
         {/* STEP 1: CREATE ACCOUNT (EMAIL + PASSWORD) */}
-        {step === 1 && !verificationPending && (
+        {step === 1 && (
           <div>
             <div className="text-center mb-6">
               <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-2 block font-sans">Host Console Sign Up</span>
@@ -528,45 +418,6 @@ function SignupWizardContent() {
                 <span>🍎</span> Sign Up with Apple
               </GlassButton>
             </div>
-          </div>
-        )}
-
-        {/* STEP 1 PENDING: VERIFICATION LINK SENT */}
-        {step === 1 && verificationPending && (
-          <div className="text-center py-4">
-            <div className="w-16 h-16 rounded-full bg-[var(--singr-accent-primary)]/10 text-[var(--singr-accent-primary)] flex items-center justify-center mx-auto mb-4 border border-[var(--singr-accent-primary)]/20 animate-pulse">
-              <Mail className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-extrabold text-white mb-2">Verify Your Email</h1>
-            <p className="text-xs text-[var(--singr-text-secondary)] font-sans max-w-sm mx-auto leading-relaxed mb-6">
-              A verification link was sent to <strong className="text-white">{email || session?.user?.email}</strong>. Once you click the link in your email, click below to proceed.
-            </p>
-
-            <div className="flex flex-col gap-3 max-w-xs mx-auto">
-              <GlassButton onClick={handleCheckSessionVerification} variant="primary" className="w-full py-3 text-xs font-bold flex items-center justify-center gap-2" disabled={loading}>
-                <Check className="w-4 h-4" /> I've Verified My Email
-              </GlassButton>
-              
-              <GlassButton 
-                onClick={handleResendLink} 
-                variant="secondary" 
-                className="w-full py-3 text-xs font-bold" 
-                disabled={loading || resendCooldown > 0}
-              >
-                {resendCooldown > 0 ? `Resend Link (${resendCooldown}s)` : "Resend Verification Link"}
-              </GlassButton>
-            </div>
-
-            <p className="mt-8 text-[10px] text-[var(--singr-text-secondary)] font-sans">
-              Need to use a different email?{" "}
-              <button 
-                onClick={handleStartOver} 
-                className="text-[var(--singr-accent-primary)] hover:underline bg-transparent border-none p-0 cursor-pointer"
-                disabled={loading}
-              >
-                Start Over
-              </button>
-            </p>
           </div>
         )}
 
