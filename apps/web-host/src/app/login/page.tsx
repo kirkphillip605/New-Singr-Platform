@@ -32,6 +32,7 @@ function LoginContent() {
   const [emailStatus, setEmailStatus] = useState<"unchecked" | "new" | "unverified" | "verified">("unchecked");
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const disableSmsAuth = process.env.NEXT_PUBLIC_DISABLE_SMS_AUTH === "true";
 
   // Pre-fill email from query parameters (e.g. from signup redirect)
   useEffect(() => {
@@ -343,15 +344,17 @@ function LoginContent() {
               >
                 Magic Link
               </button>
-              <button
-                type="button"
-                onClick={() => { setAuthMethod("sms"); setError(""); setInfoMessage(""); }}
-                className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                  authMethod === "sms" ? "bg-[var(--glass-bg)] text-white shadow-sm" : "text-[var(--singr-text-secondary)] hover:text-white"
-                }`}
-              >
-                SMS OTP
-              </button>
+              {!disableSmsAuth && (
+                <button
+                  type="button"
+                  onClick={() => { setAuthMethod("sms"); setError(""); setInfoMessage(""); }}
+                  className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
+                    authMethod === "sms" ? "bg-[var(--glass-bg)] text-white shadow-sm" : "text-[var(--singr-text-secondary)] hover:text-white"
+                  }`}
+                >
+                  SMS OTP
+                </button>
+              )}
             </div>
 
             {/* TAB 1: EMAIL & PASSWORD (WITH AUTO-DETECTION) */}
@@ -516,7 +519,7 @@ function LoginContent() {
             )}
 
             {/* TAB 3: SMS OTP */}
-            {authMethod === "sms" && (
+            {authMethod === "sms" && !disableSmsAuth && (
               <div>
                 {!smsSent ? (
                   /* SEND SMS OTP FORM */

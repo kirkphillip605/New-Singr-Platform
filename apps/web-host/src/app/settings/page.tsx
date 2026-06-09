@@ -19,6 +19,7 @@ import {
 export default function HostSettingsPage() {
   const { data: session, isPending: sessionLoading, refetch } = useSession();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const disableSmsAuth = process.env.NEXT_PUBLIC_DISABLE_SMS_AUTH === "true";
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "linked">("profile");
   
   // Profile states
@@ -322,16 +323,18 @@ export default function HostSettingsPage() {
           >
             <UserIcon className="w-4 h-4" /> Profile Info
           </button>
-          <button
-            onClick={() => { setActiveTab("security"); setError(""); setSuccess(""); }}
-            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
-              activeTab === "security" 
-                ? "border-[var(--singr-accent-primary)] text-white" 
-                : "border-transparent text-[var(--singr-text-secondary)] hover:text-white"
-            }`}
-          >
-            <Lock className="w-4 h-4" /> Security & 2FA
-          </button>
+          {!disableSmsAuth && (
+            <button
+              onClick={() => { setActiveTab("security"); setError(""); setSuccess(""); }}
+              className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
+                activeTab === "security" 
+                  ? "border-[var(--singr-accent-primary)] text-white" 
+                  : "border-transparent text-[var(--singr-text-secondary)] hover:text-white"
+              }`}
+            >
+              <Lock className="w-4 h-4" /> Security & 2FA
+            </button>
+          )}
           <button
             onClick={() => { setActiveTab("linked"); setError(""); setSuccess(""); }}
             className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
@@ -395,23 +398,25 @@ export default function HostSettingsPage() {
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
                         onBlur={handlePhoneBlur}
-                        required
+                        required={!disableSmsAuth}
                       />
                     </div>
-                    {phoneVerified ? (
-                      <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-3 rounded-xl border border-emerald-500/20">
-                        <Check className="w-3.5 h-3.5" /> Verified
-                      </span>
-                    ) : (
-                      <GlassButton 
-                        type="button" 
-                        variant="secondary" 
-                        onClick={handleSendVerificationOtp}
-                        disabled={loading || !phoneNumber}
-                        className="py-2.5 text-[10px] uppercase font-bold tracking-wider"
-                      >
-                        Verify Number
-                      </GlassButton>
+                    {!disableSmsAuth && (
+                      phoneVerified ? (
+                        <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-3 rounded-xl border border-emerald-500/20">
+                          <Check className="w-3.5 h-3.5" /> Verified
+                        </span>
+                      ) : (
+                        <GlassButton 
+                          type="button" 
+                          variant="secondary" 
+                          onClick={handleSendVerificationOtp}
+                          disabled={loading || !phoneNumber}
+                          className="py-2.5 text-[10px] uppercase font-bold tracking-wider"
+                        >
+                          Verify Number
+                        </GlassButton>
+                      )
                     )}
                   </div>
                 </div>
@@ -426,7 +431,7 @@ export default function HostSettingsPage() {
             <div className="flex flex-col gap-6">
               
               {/* Phone OTP Verification Box */}
-              {isVerifyingPhone && (
+              {isVerifyingPhone && !disableSmsAuth && (
                 <GlassCard className="p-6 border border-[var(--singr-accent-primary)]/20">
                   <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
                     <Smartphone className="w-4 h-4 text-[var(--singr-accent-primary)]" />
@@ -478,18 +483,22 @@ export default function HostSettingsPage() {
                       {session?.user?.emailVerified ? "Verified" : "Pending"}
                     </span>
                   </li>
-                  <li className="flex justify-between items-center">
-                    <span className="text-[var(--singr-text-secondary)]">Phone Linked</span>
-                    <span className={`font-semibold px-2 py-0.5 rounded-full ${phoneVerified ? "text-emerald-400 bg-emerald-500/10" : "text-amber-400 bg-amber-500/10"}`}>
-                      {phoneVerified ? "Linked" : "Unverified"}
-                    </span>
-                  </li>
-                  <li className="flex justify-between items-center">
-                    <span className="text-[var(--singr-text-secondary)]">2FA Enforced</span>
-                    <span className={`font-semibold px-2 py-0.5 rounded-full ${twoFactorEnabled ? "text-emerald-400 bg-emerald-500/10" : "text-slate-400 bg-slate-500/10"}`}>
-                      {twoFactorEnabled ? "Active" : "Disabled"}
-                    </span>
-                  </li>
+                  {!disableSmsAuth && (
+                    <>
+                      <li className="flex justify-between items-center">
+                        <span className="text-[var(--singr-text-secondary)]">Phone Linked</span>
+                        <span className={`font-semibold px-2 py-0.5 rounded-full ${phoneVerified ? "text-emerald-400 bg-emerald-500/10" : "text-amber-400 bg-amber-500/10"}`}>
+                          {phoneVerified ? "Linked" : "Unverified"}
+                        </span>
+                      </li>
+                      <li className="flex justify-between items-center">
+                        <span className="text-[var(--singr-text-secondary)]">2FA Enforced</span>
+                        <span className={`font-semibold px-2 py-0.5 rounded-full ${twoFactorEnabled ? "text-emerald-400 bg-emerald-500/10" : "text-slate-400 bg-slate-500/10"}`}>
+                          {twoFactorEnabled ? "Active" : "Disabled"}
+                        </span>
+                      </li>
+                    </>
+                  )}
                 </ul>
               </GlassCard>
             </div>
@@ -497,7 +506,7 @@ export default function HostSettingsPage() {
         )}
 
         {/* SECURITY & 2FA TAB */}
-        {activeTab === "security" && (
+        {activeTab === "security" && !disableSmsAuth && (
           <GlassCard className="p-8 max-w-2xl">
             <div className="flex items-start gap-4 mb-6">
               <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-[var(--singr-accent-primary)]">
