@@ -15,7 +15,9 @@ function SignupWizardContent() {
   // URL Query Parameters
   const stepParam = searchParams.get("step");
   const planParam = searchParams.get("plan");
-  
+  const emailParam = searchParams.get("email");
+  const methodParam = searchParams.get("method");
+
   const initialStep = stepParam ? parseInt(stepParam, 10) : 1;
   const [step, setStep] = useState(initialStep);
 
@@ -58,6 +60,20 @@ function SignupWizardContent() {
       }
     }
   }, [stepParam]);
+
+  // Prefill email from query param (e.g. login redirect / magic-link new user)
+  useEffect(() => {
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, [emailParam]);
+
+  // Friendly hint when arriving from the magic-link flow (account doesn't exist yet)
+  useEffect(() => {
+    if (methodParam === "magic") {
+      setInfoMessage("Let's finish creating your host account. Set a password to continue.");
+    }
+  }, [methodParam]);
 
   // Determine session redirection and step transition
   useEffect(() => {
@@ -105,6 +121,30 @@ function SignupWizardContent() {
       }
     }
   }, [session, sessionLoading, planParam]);
+
+  // Continuous polling on the verification-pending screen: when the user clicks the
+  // verification link (same browser shares the session cookie + autoSignInAfterVerification),
+  // emailVerified flips true and we auto-advance to step 2.
+  useEffect(() => {
+    if (!verificationPending || step !== 1) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await authClient.getSession({
+          query: { disableCookieCache: true },
+        });
+        if (res?.data?.user?.emailVerified) {
+          clearInterval(interval);
+          goToStep(2);
+        }
+      } catch {
+        // Network hiccup — keep polling silently.
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verificationPending, step]);
 
   // Direct checkout routing helper
   const handleUpgradeDirectly = async (plan: string) => {
@@ -175,31 +215,33 @@ function SignupWizardContent() {
 
       if (checkData.exists) {
         if (checkData.emailVerified) {
+          // Existing, verified account -> send them to login
           setInfoMessage("Account already exists with this email address. Directing to login...");
           setTimeout(() => {
             router.replace(`/login?email=${encodeURIComponent(email)}&status=exists`);
           }, 2000);
           return;
-        } else {
-          // Account exists but is unverified
-          const resendRes = await authClient.sendVerificationEmail({
-            email,
-            callbackURL: `${window.location.origin}/verify-email`,
-          });
-
-          if (resendRes?.error) {
-            throw new Error(resendRes.error.message || "Failed to resend verification link.");
-          }
-
-          setInfoMessage("An unverified account already exists. We have sent a verification link.");
-          setVerificationPending(true);
         }
-        // Create new account
+
+        // Existing but unverified account -> resend the verification link
+        const resendRes = await authClient.sendVerificationEmail({
+          email,
+          callbackURL: `${window.location.origin}/verify-email`,
+        });
+
+        if (resendRes?.error) {
+          throw new Error(resendRes.error.message || "Failed to resend verification link.");
+        }
+
+        setInfoMessage("An unverified account already exists. We have sent a fresh verification link.");
+        setVerificationPending(true);
+      } else {
+        // Brand new account -> create it (defaults to the singer role; host is granted
+        // later on profile completion). Do NOT pass a host role here.
         const res = await signUp.email({
           email,
           password,
-          name: email.split("@")[0] || "Host",
-          roles: ["host", "singer"],
+          name: "",
           callbackURL: `${window.location.origin}/verify-email`,
         } as any);
 

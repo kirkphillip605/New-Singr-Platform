@@ -26,16 +26,16 @@ function VerifyEmailContent() {
   useEffect(() => {
     if (!isSameDevice || errorParam) return;
 
-    if (redirectTimer === 0) {
+    if (redirectTimer <= 0) {
       router.replace("/signup?step=2");
       return;
     }
 
-    const interval = setInterval(() => {
-      setRedirectTimer((prev) => prev - 1);
+    const timeout = setTimeout(() => {
+      setRedirectTimer((prev) => Math.max(0, prev - 1));
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => clearTimeout(timeout);
   }, [isSameDevice, redirectTimer, errorParam, router]);
 
   if (sessionLoading) {
@@ -70,9 +70,9 @@ function VerifyEmailContent() {
             </div>
             <h1 className="text-2xl font-extrabold text-white mb-2">Verification Failed</h1>
             <p className="text-xs text-[var(--singr-text-secondary)] leading-relaxed mb-6">
-              {errorParam === "expired"
-                ? "The verification link has expired. Please sign up again or request a new link."
-                : "The verification link is invalid or has already been used."}
+              {errorParam === "expired" || errorParam === "token_expired"
+                ? "This verification link has expired. Head back to sign up to request a fresh link."
+                : "This verification link is invalid or has already been used. Request a new one from the sign up screen."}
             </p>
             <GlassButton onClick={() => router.replace("/signup")} variant="primary" className="w-full py-3 text-xs font-bold">
               Back to Sign Up

@@ -198,25 +198,21 @@ async function syncUserSubscription(userId: string, status: 'active' | 'inactive
     }
 
     // 2. Sync User Roles
-    let updatedRoles = user.roles || []
+    // The `host` role is owned by host-profile completion (PUT /profile), NOT by
+    // subscription state. Subscription only drives hostProfile.subscriptionStatus.
+    // As a harmless safety net we may ADD `host` on an active subscription, but we
+    // must NEVER remove it (or force roles back to ['singer']) on inactive.
     if (status === 'active') {
-      if (!updatedRoles.includes('host')) {
-        updatedRoles = [...updatedRoles, 'host']
+      const currentRoles = user.roles || []
+      if (!currentRoles.includes('host')) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { roles: [...currentRoles, 'host'] },
+        })
       }
-    } else {
-      updatedRoles = updatedRoles.filter((r) => r !== 'host')
     }
 
-    if (updatedRoles.length === 0) {
-      updatedRoles = ['singer']
-    }
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { roles: updatedRoles },
-    })
-
-    console.log(`[syncUserSubscription] Synced user ${user.email} (ID: ${userId}) to status: ${status}, roles: ${JSON.stringify(updatedRoles)}`)
+    console.log(`[syncUserSubscription] Synced user ${user.email} (ID: ${userId}) to status: ${status}`)
   } catch (error) {
     console.error(`[syncUserSubscription] Failed to sync subscription for user ${userId}:`, error)
   }
@@ -232,6 +228,60 @@ console.log(`🔧 [Auth Config] TWILIO_PHONE_NUMBER: ${process.env.TWILIO_PHONE_
 console.log(`🔧 [Auth Config] BETTER_AUTH_URL: ${process.env.BETTER_AUTH_URL}`);
 console.log(`🔧 [Auth Config] NODE_ENV: ${process.env.NODE_ENV}`);
 
+// =============================================
+// SOCIAL PROVIDERS — built CONDITIONALLY
+// Only register a provider when its clientId/clientSecret env vars are present
+// AND not equal to the .env.example placeholder values. This prevents better-auth
+// from registering broken providers at startup (which throws on bad creds).
+// `mapProfileToUser` captures first/last name. Note user.fields.name = 'firstName',
+// so we also set `name` to the given name to keep the firstName column populated.
+// =============================================
+const PLACEHOLDER_ENV_VALUES = new Set([
+  'your_google_client_id',
+  'your_google_client_secret',
+  'your_apple_client_id',
+  'your_apple_client_secret',
+])
+
+function hasRealCredential(value: string | undefined): value is string {
+  return !!value && !PLACEHOLDER_ENV_VALUES.has(value)
+}
+
+const socialProviders: Record<string, any> = {}
+
+if (hasRealCredential(process.env.GOOGLE_CLIENT_ID) && hasRealCredential(process.env.GOOGLE_CLIENT_SECRET)) {
+  socialProviders.google = {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    mapProfileToUser: (profile: any) => ({
+      firstName: profile.given_name,
+      lastName: profile.family_name,
+      name: profile.given_name,
+    }),
+  }
+  console.log('🔧 [Auth Config] Google social provider registered.')
+} else {
+  console.log('🔧 [Auth Config] Google social provider NOT registered (missing/placeholder credentials).')
+}
+
+if (hasRealCredential(process.env.APPLE_CLIENT_ID) && hasRealCredential(process.env.APPLE_CLIENT_SECRET)) {
+  // NOTE: Apple requires a generated JWT client secret (signed with your private key)
+  // and a Services ID as the clientId. Apple only returns the user's name on the
+  // FIRST consent, so map given/family name only when present.
+  socialProviders.apple = {
+    clientId: process.env.APPLE_CLIENT_ID,
+    clientSecret: process.env.APPLE_CLIENT_SECRET,
+    mapProfileToUser: (profile: any) => ({
+      firstName: profile.given_name,
+      lastName: profile.family_name,
+      name: profile.given_name,
+    }),
+  }
+  console.log('🔧 [Auth Config] Apple social provider registered.')
+} else {
+  console.log('🔧 [Auth Config] Apple social provider NOT registered (missing/placeholder credentials).')
+}
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
@@ -239,6 +289,19 @@ export const auth = betterAuth({
 
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
+
+  // Conditionally-registered Google/Apple providers (see builder above).
+  socialProviders,
+
+  // Allow OAuth sign-in to link to an existing email/password account with the
+  // same email. google/apple are trusted so linking happens automatically.
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ['google', 'apple'],
+    },
+  },
+
   trustedOrigins: [
     'http://localhost:3010',
     'http://localhost:3011',
@@ -406,6 +469,9 @@ export const auth = betterAuth({
     bearer(),
     passkey(),
     magicLink({
+      // Sign-in only: never create a new account from a magic link. The client
+      // pre-checks email existence and routes unknown users to signup.
+      disableSignUp: true,
       sendMagicLink: async ({ email, url }) => {
         console.log(`✉️ [magicLink.sendMagicLink] TRIGGERED for ${email}`);
         console.log(`✉️ [magicLink.sendMagicLink] Magic link URL: ${url}`);
@@ -473,21 +539,21 @@ export const auth = betterAuth({
         plans: [
           {
             name: 'monthly',
-            priceId: 'price_1TOBKUEHv8jD9HNKuH9i3sEy',
+            priceId: process.env.STRIPE_MONTHLY_PRICE || 'price_1SDoYqEHv8jD9HNKhqkE6KYA',
             freeTrial: {
               days: 7,
             },
           },
           {
             name: 'six_month',
-            priceId: 'price_1TOBKVEHv8jD9HNKcXvrP2Po',
+            priceId: process.env.STRIPE_SEMI_ANNUAL_PRICE || 'price_1SDoYrEHv8jD9HNKb4u0KBVx',
             freeTrial: {
               days: 7,
             },
           },
           {
             name: 'annual',
-            priceId: 'price_1TOBKVEHv8jD9HNKK0nTrlRV',
+            priceId: process.env.STRIPE_ANNUAL_PRICE || 'price_1SDoYrEHv8jD9HNKNPlSfrwB',
             freeTrial: {
               days: 14,
             },

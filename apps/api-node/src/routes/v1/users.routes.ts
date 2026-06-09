@@ -4,6 +4,12 @@ import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js'
 import { auth } from '../../lib/auth.js'
 import { fromNodeHeaders } from 'better-auth/node'
+import Stripe from 'stripe'
+
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_mock'
+const stripe = new Stripe(stripeSecretKey, {
+  apiVersion: '2026-05-27.dahlia',
+})
 
 const router: Router = Router()
 
@@ -228,6 +234,42 @@ router.get('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
       })
     }
 
+    let subscriptionStatus = user.hostProfile?.subscriptionStatus || 'inactive'
+    const stripeCustomerId = user.stripeCustomerId || user.hostProfile?.stripeCustomerId
+
+    if (stripeCustomerId) {
+      try {
+        console.log(`🔍 [profile] Querying live Stripe subscriptions for customer ${stripeCustomerId}`)
+        const activeSubscriptions = await stripe.subscriptions.list({
+          customer: stripeCustomerId,
+          limit: 1,
+        })
+        if (activeSubscriptions.data.length > 0) {
+          const stripeSub = activeSubscriptions.data[0] as any
+          if (stripeSub.status === 'active' || stripeSub.status === 'trialing') {
+            subscriptionStatus = 'active'
+          } else {
+            subscriptionStatus = 'inactive'
+          }
+        } else {
+          subscriptionStatus = 'inactive'
+        }
+
+        // Asynchronously update database if status is out of sync.
+        // NOTE: subscription status only drives hostProfile.subscriptionStatus.
+        // The `host` role is owned by profile completion (PUT /profile) and is
+        // never added/removed here based on subscription state.
+        if (user.hostProfile && user.hostProfile.subscriptionStatus !== subscriptionStatus) {
+          await prisma.hostProfile.update({
+            where: { userId: user.id },
+            data: { subscriptionStatus }
+          })
+        }
+      } catch (stripeErr) {
+        console.error('⚠️ [profile] Stripe connection failed, falling back to local DB status:', stripeErr)
+      }
+    }
+
     return res.status(200).json({
       success: true,
       user: {
@@ -240,7 +282,7 @@ router.get('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
         roles: user.roles,
         businessName: user.businessName,
         singerAbout: user.singerAbout,
-        subscriptionStatus: user.hostProfile?.subscriptionStatus || 'inactive',
+        subscriptionStatus,
       },
     })
   } catch (error: any) {
@@ -265,6 +307,12 @@ router.put('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
       })
     }
 
+    // Completing the host profile (business name) grants the `host` role.
+    // This powers BOTH normal host onboarding and the singer->host upgrade.
+    // Merge idempotently so we never duplicate or drop existing roles.
+    const currentRoles: string[] = req.user.roles || []
+    const roles = currentRoles.includes('host') ? currentRoles : [...currentRoles, 'host']
+
     const updatedUser = await prisma.user.update({
       where: {
         id: req.user.id,
@@ -274,6 +322,7 @@ router.put('/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
         lastName,
         businessName,
         phoneNumber: phoneNumber || undefined,
+        roles,
       },
     })
 

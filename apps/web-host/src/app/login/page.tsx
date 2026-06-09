@@ -29,6 +29,14 @@ function LoginContent() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
 
+  // Singer -> host upgrade ("Become a Host") welcome panel state
+  const [showSingerWelcome, setShowSingerWelcome] = useState(false);
+  const [becomeHostMode, setBecomeHostMode] = useState(false);
+  const [needsName, setNeedsName] = useState(false);
+  const [bizFirstName, setBizFirstName] = useState("");
+  const [bizLastName, setBizLastName] = useState("");
+  const [businessName, setBusinessName] = useState("");
+
   // Email auto-detection states
   const [emailStatus, setEmailStatus] = useState<"unchecked" | "new" | "unverified" | "verified">("unchecked");
 
@@ -47,13 +55,84 @@ function LoginContent() {
     }
   }, [searchParams]);
 
-  // If user is already logged in, redirect them
+  // If user is already logged in, route based on role: hosts go to the dashboard,
+  // singer-only accounts get a "Become a Host" welcome panel instead.
   useEffect(() => {
-    if (session?.user && !hasRedirected.current) {
+    if (!session?.user || hasRedirected.current) return;
+
+    const resolveDestination = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/users/profile`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+        const user = data?.user;
+        const roles: string[] = user?.roles || (session.user as any)?.roles || [];
+
+        if (roles.includes("host") || roles.includes("host_manager")) {
+          hasRedirected.current = true;
+          router.replace("/dashboard");
+          return;
+        }
+
+        // Singer-only account: offer the host upgrade in-place.
+        setBizFirstName(user?.firstName || "");
+        setBizLastName(user?.lastName || "");
+        setNeedsName(!user?.firstName || !user?.lastName);
+        setShowSingerWelcome(true);
+      } catch {
+        // Profile fetch failed — fall back to roles on the session object.
+        const roles: string[] = (session.user as any)?.roles || [];
+        if (roles.includes("host") || roles.includes("host_manager")) {
+          hasRedirected.current = true;
+          router.replace("/dashboard");
+        } else {
+          setShowSingerWelcome(true);
+        }
+      }
+    };
+
+    resolveDestination();
+  }, [session, router, apiUrl]);
+
+  // Submit the "Become a Host" upgrade (grants the host role server-side via businessName)
+  const handleBecomeHost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setInfoMessage("");
+    setLoading(true);
+
+    if (!businessName || (needsName && (!bizFirstName || !bizLastName))) {
+      setError("Please complete all required fields.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/users/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: bizFirstName,
+          lastName: bizLastName,
+          businessName,
+        }),
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to upgrade to a host account.");
+      }
+
       hasRedirected.current = true;
       router.replace("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Failed to become a host.");
+    } finally {
+      setLoading(false);
     }
-  }, [session, router]);
+  };
 
   // Handle Email Status Auto-detection Check
   const handleCheckEmail = async (e: React.FormEvent) => {
@@ -134,6 +213,26 @@ function LoginContent() {
     }
 
     try {
+      // Magic links are sign-in only. Pre-check so unknown emails get routed to
+      // signup (with a required password) instead of receiving a dead link.
+      const checkRes = await fetch(`${apiUrl}/api/v1/users/check-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const checkData = await checkRes.json();
+      if (!checkRes.ok || !checkData.success) {
+        throw new Error(checkData.message || "Failed to check email status.");
+      }
+
+      if (!checkData.exists) {
+        setInfoMessage("No account found for this email. Redirecting you to sign up...");
+        setTimeout(() => {
+          router.push(`/signup?step=1&email=${encodeURIComponent(email)}&method=magic`);
+        }, 1500);
+        return;
+      }
+
       const res = await authClient.signIn.magicLink({
         email,
         callbackURL: `${window.location.origin}/dashboard`,
@@ -274,10 +373,12 @@ function LoginContent() {
 
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold text-white mb-2">
-            {isForgotPassword ? "Reset Password" : "Host Portal"}
+            {showSingerWelcome ? "Welcome Back" : isForgotPassword ? "Reset Password" : "Host Portal"}
           </h1>
           <p className="text-xs text-[var(--singr-text-secondary)] font-sans">
-            {isForgotPassword
+            {showSingerWelcome
+              ? "You're signed in. Become a host to access the console."
+              : isForgotPassword
               ? "Provide your email address to receive a secure password reset link."
               : "Sign in with your console credentials to access venues, systems, and request queues."}
           </p>
@@ -295,8 +396,89 @@ function LoginContent() {
           </div>
         )}
 
-        {/* FORGOT PASSWORD WORKFLOW */}
-        {isForgotPassword ? (
+        {/* SINGER -> HOST WELCOME / UPGRADE PANEL */}
+        {showSingerWelcome ? (
+          <div className="font-sans">
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 rounded-full bg-[var(--singr-accent-primary)]/10 text-[var(--singr-accent-primary)] flex items-center justify-center mx-auto mb-3 border border-[var(--singr-accent-primary)]/20">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <p className="text-xs text-[var(--singr-text-secondary)]">
+                Signed in as <strong className="text-white">{session?.user?.email}</strong>
+              </p>
+            </div>
+
+            {!becomeHostMode ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs text-[var(--singr-text-secondary)] text-center leading-relaxed mb-2">
+                  Your account isn't a host account yet. Become a host to manage venues, shows, and singer queues.
+                </p>
+                <GlassButton
+                  onClick={() => { setBecomeHostMode(true); setError(""); setInfoMessage(""); }}
+                  variant="primary"
+                  className="w-full py-3 text-xs font-bold flex items-center justify-center gap-1.5"
+                >
+                  Become a Host <ArrowRight className="w-4 h-4" />
+                </GlassButton>
+                <GlassButton
+                  onClick={() => router.push("/dashboard")}
+                  variant="secondary"
+                  className="w-full py-2.5 text-xs font-semibold"
+                >
+                  Continue to Dashboard
+                </GlassButton>
+              </div>
+            ) : (
+              <form onSubmit={handleBecomeHost} className="flex flex-col gap-4 text-sm">
+                {needsName && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">First Name</label>
+                      <GlassInput
+                        placeholder="Johnny"
+                        value={bizFirstName}
+                        onChange={(e) => setBizFirstName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Last Name</label>
+                      <GlassInput
+                        placeholder="Host"
+                        value={bizLastName}
+                        onChange={(e) => setBizLastName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Business / KJ Name</label>
+                  <GlassInput
+                    placeholder="e.g. Johnny Entertainment LLC"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <GlassButton type="submit" variant="primary" className="w-full py-3 mt-2 text-xs font-bold flex items-center justify-center gap-1.5" disabled={loading}>
+                  {loading ? "Activating Host Access..." : "Activate Host Account"} <ArrowRight className="w-4 h-4" />
+                </GlassButton>
+
+                <button
+                  type="button"
+                  onClick={() => { setBecomeHostMode(false); setError(""); }}
+                  className="text-xs text-[var(--singr-text-secondary)] hover:text-white bg-transparent border-none cursor-pointer p-0 text-center"
+                >
+                  Back
+                </button>
+              </form>
+            )}
+          </div>
+        ) : isForgotPassword ? (
           <div>
             <form onSubmit={handleRequestPasswordReset} className="flex flex-col gap-4 font-sans text-sm">
               <div className="flex flex-col gap-1.5">
