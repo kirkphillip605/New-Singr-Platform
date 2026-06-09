@@ -55,7 +55,7 @@ function ResetPasswordContent() {
       } else {
         setSuccess(true);
         setTimeout(() => {
-          router.push("/login");
+          router.replace("/login");
         }, 3000);
       }
     } catch (err: any) {
@@ -68,29 +68,27 @@ function ResetPasswordContent() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-[var(--singr-bg-primary)]">
       <GlassCard className="p-10 max-w-md w-full relative overflow-hidden" hoverable={false}>
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[var(--singr-brand-start)] to-[var(--singr-brand-end)]" style={{
-          background: "var(--singr-brand-gradient)"
-        }} />
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 to-red-400" />
 
         {success ? (
-          <div className="text-center py-6">
+          <div className="text-center py-6 font-sans">
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
               <ShieldCheck className="w-8 h-8" />
             </div>
             <h1 className="text-2xl font-extrabold text-white mb-2">Password Updated</h1>
-            <p className="text-xs text-[var(--singr-text-secondary)] font-sans">
-              Your password has been reset successfully. Redirecting you to login...
+            <p className="text-xs text-[var(--singr-text-secondary)]">
+              Your admin password has been reset successfully. Redirecting you to login...
             </p>
           </div>
         ) : (
           <div>
-            <div className="text-center mb-8">
-              <div className="w-12 h-12 rounded-full bg-[var(--singr-accent-primary)]/10 text-[var(--singr-accent-primary)] flex items-center justify-center mx-auto mb-3 border border-[var(--singr-accent-primary)]/20">
+            <div className="text-center mb-8 font-sans">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-3 border border-red-500/20">
                 <Lock className="w-6 h-6" />
               </div>
-              <h1 className="text-2xl font-extrabold text-white mb-2">Set New Password</h1>
-              <p className="text-xs text-[var(--singr-text-secondary)] font-sans">
-                Type in your new secure password to restore account access.
+              <h1 className="text-2xl font-extrabold text-white mb-2">Set New Admin Password</h1>
+              <p className="text-xs text-[var(--singr-text-secondary)]">
+                Type in your new secure password to restore admin account access.
               </p>
             </div>
 
@@ -125,15 +123,15 @@ function ResetPasswordContent() {
                 />
               </div>
 
-              <GlassButton type="submit" variant="primary" className="w-full py-3 mt-2 text-sm font-bold" disabled={loading || !token}>
-                {loading ? "Updating Password..." : "Reset Password"}
+              <GlassButton type="submit" variant="primary" className="w-full py-3 mt-2 text-sm font-bold bg-gradient-to-tr from-red-600 to-orange-500 shadow-red-500/20 border-none" disabled={loading || !token}>
+                {loading ? "Updating Password..." : "Reset Admin Password"}
               </GlassButton>
             </form>
             <div className="text-center mt-6 text-xs text-[var(--singr-text-secondary)] font-sans">
               <button
                 type="button"
                 onClick={() => router.replace("/login")}
-                className="text-[var(--singr-accent-primary)] hover:underline bg-transparent border-none cursor-pointer p-0 font-semibold"
+                className="text-red-400 hover:underline bg-transparent border-none cursor-pointer p-0 font-semibold"
               >
                 Back to Login
               </button>

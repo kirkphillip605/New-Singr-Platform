@@ -173,14 +173,28 @@ const ProfilePanelContent = () => {
 
     try {
       if (isSignUp) {
-        const res = await signUp.email({
-          email,
-          password,
-          name: `${firstName} ${lastName}`.trim(),
-          firstName,
-          lastName,
-          roles: ['singer'],
-        } as any);
+        const isAnonymous = session?.user && (session.user as any).isAnonymous;
+        let res;
+
+        if (isAnonymous) {
+          res = await (authClient as any).anonymous.linkUser({
+            email,
+            password,
+            name: `${firstName} ${lastName}`.trim(),
+            firstName,
+            lastName,
+            roles: ['singer'],
+          });
+        } else {
+          res = await signUp.email({
+            email,
+            password,
+            name: `${firstName} ${lastName}`.trim(),
+            firstName,
+            lastName,
+            roles: ['singer'],
+          } as any);
+        }
 
         if (res?.error) {
           setError(res.error.message || 'Failed to register account.');
@@ -190,9 +204,9 @@ const ProfilePanelContent = () => {
           setFirstName('');
           setLastName('');
           f7.toast.create({
-            text: 'Account created! Welcome!',
+            text: 'Account created! Please check your email to verify your account.',
             position: 'bottom',
-            closeTimeout: 2000,
+            closeTimeout: 3000,
           } as any).open();
         }
       } else {
@@ -356,7 +370,7 @@ const ProfilePanelContent = () => {
 
             {/* Social logins */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-              <button onClick={() => signIn.social({ provider: 'google' })} style={{ width: '100%', height: '36px', borderRadius: 'var(--vibe-radius-sm)', border: '1px solid var(--vibe-glass-border)', background: 'rgba(255,255,255,0.03)', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={() => signIn.social({ provider: 'google', callbackURL: window.location.origin })} style={{ width: '100%', height: '36px', borderRadius: 'var(--vibe-radius-sm)', border: '1px solid var(--vibe-glass-border)', background: 'rgba(255,255,255,0.03)', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 Sign In with Google
               </button>
             </div>

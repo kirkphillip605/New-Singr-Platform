@@ -75,6 +75,12 @@ app.use(
 import { toNodeHandler } from 'better-auth/node'
 import { auth } from './lib/auth.js'
 
+// Auth-specific rate limiting
+app.use('/api/auth/sign-in/*', rateLimiter({ limit: 10, windowSeconds: 60, keyPrefix: 'auth-signin' }))
+app.use('/api/auth/forget-password', rateLimiter({ limit: 3, windowSeconds: 60, keyPrefix: 'auth-forget' }))
+app.use('/api/auth/send-verification-email', rateLimiter({ limit: 3, windowSeconds: 60, keyPrefix: 'auth-verify' }))
+app.use('/api/auth/sign-up/*', rateLimiter({ limit: 5, windowSeconds: 60, keyPrefix: 'auth-signup' }))
+
 // Mount Better Auth handler BEFORE body parsers to avoid request hanging or 404s
 app.all('/api/auth/*splat', toNodeHandler(auth))
 

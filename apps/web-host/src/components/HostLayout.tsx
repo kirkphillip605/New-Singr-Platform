@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut, authClient } from "@/lib/auth-client";
 import { GlassButton, SingrLogo, GlassCard } from "@singr/ui";
@@ -42,6 +42,7 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
   const { data: session, isPending: sessionLoading } = useSession();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(true);
+  const hasRedirected = useRef(false);
 
   // Billing states (for when subscription is inactive)
   const [tiers, setTiers] = useState<Tier[]>([]);
@@ -55,8 +56,9 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
   useEffect(() => {
     if (sessionLoading) return;
 
-    if (!session) {
-      router.push("/login");
+    if (!session && !hasRedirected.current) {
+      hasRedirected.current = true;
+      router.replace("/login");
       return;
     }
 
@@ -94,14 +96,16 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
           const user = data.user;
 
           // Step 1: Email Verification
-          if (!user.emailVerified) {
-            router.push("/signup?step=1");
+          if (!user.emailVerified && !hasRedirected.current) {
+            hasRedirected.current = true;
+            router.replace("/signup?step=1");
             return;
           }
 
           // Step 2: Complete Profile details (first name, last name, business name)
-          if (!user.firstName || !user.lastName || !user.businessName) {
-            router.push("/signup?step=3");
+          if ((!user.firstName || !user.lastName || !user.businessName) && !hasRedirected.current) {
+            hasRedirected.current = true;
+            router.replace("/signup?step=2");
             return;
           }
 
@@ -113,8 +117,9 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
           }
 
           setCheckingOnboarding(false);
-        } else {
-          router.push("/login");
+        } else if (!hasRedirected.current) {
+          hasRedirected.current = true;
+          router.replace("/login");
         }
       } catch (err) {
         console.error("Failed to fetch onboarding profile details:", err);
@@ -148,7 +153,8 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
 
   const handleLogout = async () => {
     await signOut();
-    router.push("/login");
+    hasRedirected.current = true;
+    router.replace("/login");
   };
 
   const handleSubscribe = async (priceId: string) => {

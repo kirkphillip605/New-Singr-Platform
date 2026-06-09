@@ -21,7 +21,7 @@ import { phoneNumber } from 'better-auth/plugins/phone-number'
  * Reusable Mailjet email sender.
  * Logs every step for debugging: env check, connector init, request payload, response.
  */
-async function sendMailjetEmail(opts: {
+export async function sendMailjetEmail(opts: {
   toEmail: string;
   toName?: string;
   subject: string;

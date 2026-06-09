@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { GlassCard, SingrLogo } from "@singr/ui";
@@ -9,12 +9,15 @@ export default function RootPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
 
+  const hasRedirected = useRef(false);
+
   useEffect(() => {
-    if (!isPending) {
+    if (!isPending && !hasRedirected.current) {
+      hasRedirected.current = true;
       if (session) {
-        router.push("/dashboard");
+        router.replace("/dashboard");
       } else {
-        router.push("/login");
+        router.replace("/login");
       }
     }
   }, [session, isPending, router]);

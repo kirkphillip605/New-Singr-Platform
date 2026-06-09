@@ -11,6 +11,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const hasRedirected = React.useRef(false);
 
   // Tab Selection
   const [authMethod, setAuthMethod] = useState<"password" | "magic-link" | "sms">("password");
@@ -48,8 +49,9 @@ function LoginContent() {
 
   // If user is already logged in, redirect them
   useEffect(() => {
-    if (session?.user) {
-      router.push("/dashboard");
+    if (session?.user && !hasRedirected.current) {
+      hasRedirected.current = true;
+      router.replace("/dashboard");
     }
   }, [session, router]);
 
@@ -108,7 +110,8 @@ function LoginContent() {
       if (res?.error) {
         setError(res.error.message || "Failed to sign in. Verify your password.");
       } else {
-        router.push("/dashboard");
+        hasRedirected.current = true;
+        router.replace("/dashboard");
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
@@ -199,7 +202,8 @@ function LoginContent() {
       if (res?.error) {
         setError(res.error.message || "Invalid or expired verification passcode.");
       } else {
-        router.push("/dashboard");
+        hasRedirected.current = true;
+        router.replace("/dashboard");
       }
     } catch (err: any) {
       setError(err.message || "Verification gateway error.");
@@ -242,7 +246,7 @@ function LoginContent() {
     try {
       const res = await (authClient as any).sendVerificationEmail({
         email,
-        callbackURL: `${window.location.origin}/signup?step=2`,
+        callbackURL: `${window.location.origin}/verify-email`,
       });
 
       if (res?.error) {

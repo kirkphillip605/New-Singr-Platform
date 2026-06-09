@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signUp, signIn, authClient, useSession } from "@/lib/auth-client";
+import { signUp, signIn, authClient, useSession, signOut } from "@/lib/auth-client";
 import { GlassCard, GlassButton, GlassInput, SingrLogo } from "@singr/ui";
 import { Check, Mail, ArrowRight, Lock, Sparkles, UserCheck } from "lucide-react";
-
 
 function SignupWizardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, isPending: sessionLoading, refetch } = useSession();
+  const hasRedirected = useRef(false);
 
   // URL Query Parameters
   const stepParam = searchParams.get("step");
@@ -27,60 +27,81 @@ function SignupWizardContent() {
   const [lastName, setLastName] = useState("");
   const [businessName, setBusinessName] = useState("");
 
+  // OAuth specific password setting
+  const [isOAuthWithoutPassword, setIsOAuthWithoutPassword] = useState(false);
+
   // UI Flow states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
   const [verificationPending, setVerificationPending] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+  // Cooldown timer for resending verification link
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   // Sync step with URL parameter
   useEffect(() => {
     if (stepParam) {
       const parsed = parseInt(stepParam, 10);
-      if (parsed >= 1 && parsed <= 3) {
+      if (parsed >= 1 && parsed <= 2) {
         setStep(parsed);
       }
     }
   }, [stepParam]);
 
-  // Determine if logged-in user needs to upgrade
+  // Determine session redirection and step transition
   useEffect(() => {
     if (!sessionLoading && session?.user) {
       const user = session.user as any;
       const hasHostRole = user.roles?.includes("host");
       const hasBusinessName = !!user.businessName;
 
-      // If user is already a full host, redirect to dashboard
+      // If user is already a full host and verified, redirect to dashboard
       if (hasHostRole && hasBusinessName && user.emailVerified) {
-        // If plan is specified in url, handle redirect to subscription upgrade instead of dashboard
-        if (planParam) {
-          handleUpgradeDirectly(planParam);
-        } else {
-          router.push("/dashboard");
+        if (!hasRedirected.current) {
+          hasRedirected.current = true;
+          if (planParam) {
+            handleUpgradeDirectly(planParam);
+          } else {
+            router.replace("/dashboard");
+          }
         }
         return;
       }
 
-      // If they are logged in but lack host profile details (like a singer upgrading)
-      if (!hasBusinessName || !hasHostRole) {
-        setIsUpgrading(true);
-        setStep(3); // Direct to profile details step
+      // If logged in and email verified, but missing profile details (like singer upgrading or completed verify)
+      if (user.emailVerified) {
+        setStep(2);
         setFirstName(user.firstName || user.name || "");
         setLastName(user.lastName || "");
-      } else if (!user.emailVerified) {
-        // Logged in but email unverified
+        
+        // Also check if they are a singer upgrading or host onboarding
+        if (!hasBusinessName || !hasHostRole) {
+          setIsUpgrading(true);
+        }
+
+        // Fetch user accounts to check if OAuth user needs password
+        authClient.listAccounts().then((res) => {
+          const hasCredential = res.data?.some((acc) => acc.providerId === "credential");
+          setIsOAuthWithoutPassword(!hasCredential);
+        }).catch((err) => {
+          console.error("Failed to list user accounts:", err);
+        });
+      } else {
+        // Logged in but email is not verified yet
         setStep(1);
         setEmail(user.email);
         setVerificationPending(true);
-      } else {
-        // They completed profile, check if they need password set (if they registered passwordless/magic link)
-        // We will send them to step 2 to set password if password is null, but we can't read user.password from client.
-        // So we default to step 2 or let them proceed to dashboard.
-        // Normally, if they completed step 3 (business name is present), they are done with the wizard.
-        router.push("/dashboard");
       }
     }
   }, [session, sessionLoading, planParam]);
@@ -98,11 +119,11 @@ function SignupWizardContent() {
       if (res?.data?.url) {
         window.location.href = res.data.url;
       } else {
-        router.push("/dashboard");
+        router.replace("/dashboard");
       }
     } catch (err) {
       console.error("Upgrade redirect failed:", err);
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } finally {
       setLoading(false);
     }
@@ -110,26 +131,37 @@ function SignupWizardContent() {
 
   const goToStep = (nextStep: number) => {
     setStep(nextStep);
-    // Preserving plan query parameter if present
     const planQuery = planParam ? `&plan=${planParam}` : "";
-    router.push(`/signup?step=${nextStep}${planQuery}`);
+    router.replace(`/signup?step=${nextStep}${planQuery}`);
   };
 
-  // Step 1: Initiate Sign up / Verification Link
-  const handleSendVerification = async (e: React.FormEvent) => {
+  // Step 1 Submit: Create account with Email + Password
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setInfoMessage("");
     setLoading(true);
 
-    if (!email) {
-      setError("Please enter a valid email address.");
+    if (!email || !password) {
+      setError("Please fill in all fields.");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       setLoading(false);
       return;
     }
 
     try {
-      // 1. Check if user exists on our custom API endpoint
+      // 1. Check if user exists
       const checkRes = await fetch(`${apiUrl}/api/v1/users/check-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -143,50 +175,44 @@ function SignupWizardContent() {
 
       if (checkData.exists) {
         if (checkData.emailVerified) {
-          // Account already exists and is verified -> Drop them into Login flow prefilled
           setInfoMessage("Account already exists with this email address. Directing to login...");
           setTimeout(() => {
-            router.push(`/login?email=${encodeURIComponent(email)}&status=exists`);
+            router.replace(`/login?email=${encodeURIComponent(email)}&status=exists`);
           }, 2000);
           return;
         } else {
-          // Account exists but is unverified -> Resend verification link
+          // Account exists but is unverified
           const resendRes = await authClient.sendVerificationEmail({
             email,
-            callbackURL: `${window.location.origin}/signup?step=2${planParam ? `&plan=${planParam}` : ""}`,
+            callbackURL: `${window.location.origin}/verify-email`,
           });
 
           if (resendRes?.error) {
             throw new Error(resendRes.error.message || "Failed to resend verification link.");
           }
 
-          setInfoMessage("An unverified account already exists. We have sent a new verification link.");
+          setInfoMessage("An unverified account already exists. We have sent a verification link.");
           setVerificationPending(true);
         }
       } else {
-        // Account does not exist -> Create new account with email-only flow
-        // Generate a strong, random password under the hood
-        const tempPassword = Math.random().toString(36).slice(-10) + 
-                            Math.random().toString(36).toUpperCase().slice(-5) + 
-                            "!" + Math.floor(Math.random() * 10);
-
-        const res = await (signUp.email as any)({
+        // Create new account
+        const res = await signUp.email({
           email,
-          password: tempPassword,
+          password,
           name: email.split("@")[0] || "Host",
           roles: ["host", "singer"],
-          callbackURL: `${window.location.origin}/signup?step=2${planParam ? `&plan=${planParam}` : ""}`,
+          callbackURL: `${window.location.origin}/verify-email`,
         });
 
         if (res?.error) {
-          throw new Error(res.error.message || "Failed to initiate sign up registration.");
+          throw new Error(res.error.message || "Failed to create account.");
         }
 
         setInfoMessage("Verification link sent! Check your inbox.");
         setVerificationPending(true);
       }
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred. Please try again.");
+      setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
@@ -194,6 +220,7 @@ function SignupWizardContent() {
 
   // Resend verification link
   const handleResendLink = async () => {
+    if (resendCooldown > 0) return;
     setError("");
     setInfoMessage("");
     setLoading(true);
@@ -204,16 +231,17 @@ function SignupWizardContent() {
         throw new Error("No email address found to verify.");
       }
 
-      const res = await (authClient as any).sendVerificationEmail({
+      const res = await authClient.sendVerificationEmail({
         email: activeEmail,
-        callbackURL: `${window.location.origin}/signup?step=2${planParam ? `&plan=${planParam}` : ""}`,
+        callbackURL: `${window.location.origin}/verify-email`,
       });
 
       if (res?.error) {
         throw new Error(res.error.message || "Failed to resend verification email.");
       }
 
-      setInfoMessage("Verification link has been resent. Check your spam folder if you do not see it.");
+      setInfoMessage("Verification link has been resent.");
+      setResendCooldown(60);
     } catch (err: any) {
       setError(err.message || "Failed to resend link.");
     } finally {
@@ -221,12 +249,11 @@ function SignupWizardContent() {
     }
   };
 
-  // Check if verification link was clicked and session is active
+  // Manually check if verification completed
   const handleCheckSessionVerification = async () => {
     setError("");
     setLoading(true);
     try {
-      // Force-refresh getSession
       const res = await authClient.getSession({
         query: {
           disableCookieCache: true,
@@ -245,68 +272,56 @@ function SignupWizardContent() {
     }
   };
 
-  // Step 2: Set Password
-  const handleSetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
-      setLoading(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Send set-password request to our backend API route
-      const res = await fetch(`${apiUrl}/api/v1/users/set-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ password }),
-        credentials: "include",
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Failed to set password.");
-      }
-
-      // Refresh session
-      await refetch();
-      goToStep(3);
-    } catch (err: any) {
-      setError(err.message || "Failed to configure password. Please retry.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 3: Complete Profile
+  // Step 2 Submit: Complete Profile (and set password if OAuth)
   const handleCompleteProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     if (!firstName || !lastName || !businessName) {
-      setError("All profile fields (First, Last, and Business Name) are required.");
+      setError("First Name, Last Name, and Business Name are required.");
       setLoading(false);
       return;
     }
 
+    if (isOAuthWithoutPassword) {
+      if (!password) {
+        setError("Please set a password for your account.");
+        setLoading(false);
+        return;
+      }
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters long.");
+        setLoading(false);
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
+      // 1. If OAuth user, set password first
+      if (isOAuthWithoutPassword) {
+        const passRes = await fetch(`${apiUrl}/api/v1/users/set-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+          credentials: "include",
+        });
+
+        const passData = await passRes.json();
+        if (!passRes.ok || !passData.success) {
+          throw new Error(passData.message || "Failed to configure account password.");
+        }
+      }
+
+      // 2. Save profile details
       const response = await fetch(`${apiUrl}/api/v1/users/profile`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName,
           lastName,
@@ -320,23 +335,39 @@ function SignupWizardContent() {
         throw new Error(data.message || "Failed to update profile.");
       }
 
-      // Force refresh session to clear cache
+      // Refresh session
       await authClient.getSession({
-        query: {
-          disableCookieCache: true,
-        }
+        query: { disableCookieCache: true }
       });
       await refetch();
 
-      // If user came from pricing page with a plan, redirect them directly to Stripe Checkout
       if (planParam) {
-        setInfoMessage("Profile saved! Redirecting to billing coverage check...");
+        setInfoMessage("Profile saved! Redirecting to checkout...");
         await handleUpgradeDirectly(planParam);
       } else {
-        router.push("/dashboard");
+        router.replace("/dashboard");
       }
     } catch (err: any) {
       setError(err.message || "Failed to complete profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartOver = async () => {
+    setLoading(true);
+    try {
+      await signOut();
+      setVerificationPending(false);
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setFirstName("");
+      setLastName("");
+      setBusinessName("");
+      goToStep(1);
+    } catch (err) {
+      console.error("Failed to sign out:", err);
     } finally {
       setLoading(false);
     }
@@ -353,28 +384,21 @@ function SignupWizardContent() {
           <SingrLogo variant="white" className="h-9 w-auto object-contain" />
         </div>
 
-        {/* Header Steps Progress (Only show if not in upgrade-singer flow) */}
+        {/* 2-Step Progress Stepper */}
         {!isUpgrading && (
-          <div className="flex justify-between items-center mb-8 px-4">
+          <div className="flex justify-between items-center mb-8 px-12">
             <div className="flex flex-col items-center">
               <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-sans transition-all ${
                 step >= 1 ? "bg-[var(--singr-accent-primary)] text-white" : "bg-white/5 border border-white/10 text-[var(--singr-text-secondary)]"
               }`}>1</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--singr-text-secondary)] mt-1.5 font-sans">Verify</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--singr-text-secondary)] mt-1.5 font-sans">Create Account</span>
             </div>
-            <div className={`flex-1 h-0.5 mx-2 bg-white/5 ${step >= 2 ? "bg-[var(--singr-accent-primary)]/40" : ""}`} />
+            <div className={`flex-1 h-0.5 mx-4 bg-white/5 ${step >= 2 ? "bg-[var(--singr-accent-primary)]/40" : ""}`} />
             <div className="flex flex-col items-center">
               <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-sans transition-all ${
                 step >= 2 ? "bg-[var(--singr-accent-primary)] text-white" : "bg-white/5 border border-white/10 text-[var(--singr-text-secondary)]"
               }`}>2</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--singr-text-secondary)] mt-1.5 font-sans">Password</span>
-            </div>
-            <div className={`flex-1 h-0.5 mx-2 bg-white/5 ${step >= 3 ? "bg-[var(--singr-accent-primary)]/40" : ""}`} />
-            <div className="flex flex-col items-center">
-              <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-sans transition-all ${
-                step >= 3 ? "bg-[var(--singr-accent-primary)] text-white" : "bg-white/5 border border-white/10 text-[var(--singr-text-secondary)]"
-              }`}>3</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--singr-text-secondary)] mt-1.5 font-sans">Profile</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--singr-text-secondary)] mt-1.5 font-sans">Complete Profile</span>
             </div>
           </div>
         )}
@@ -391,20 +415,20 @@ function SignupWizardContent() {
           </div>
         )}
 
-        {/* STEP 1: EMAIL-ONLY REGISTER */}
+        {/* STEP 1: CREATE ACCOUNT (EMAIL + PASSWORD) */}
         {step === 1 && !verificationPending && (
           <div>
             <div className="text-center mb-6">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-2 block font-sans">Welcome to Singr</span>
-              <h1 className="text-2xl font-extrabold text-white mb-2">Create Host Console</h1>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-2 block font-sans">Host Console Sign Up</span>
+              <h1 className="text-2xl font-extrabold text-white mb-2">Create Host Account</h1>
               <p className="text-xs text-[var(--singr-text-secondary)] font-sans">
-                Enter your email address to verify your account and begin your host onboarding.
+                Onboard as a Karaoke Host to manage shows, venues, and singer queues.
               </p>
             </div>
 
-            <form onSubmit={handleSendVerification} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)] font-sans">Email Address</label>
+            <form onSubmit={handleCreateAccount} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5 font-sans">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Email Address</label>
                 <GlassInput
                   type="email"
                   placeholder="name@venue.com"
@@ -414,8 +438,30 @@ function SignupWizardContent() {
                 />
               </div>
 
-              <GlassButton type="submit" variant="primary" className="w-full py-3 mt-2 text-xs font-bold" disabled={loading}>
-                {loading ? "Verifying Credentials..." : "Send Verification Link"}
+              <div className="flex flex-col gap-1.5 font-sans">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Password (min 8 chars)</label>
+                <GlassInput
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5 font-sans">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Confirm Password</label>
+                <GlassInput
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <GlassButton type="submit" variant="primary" className="w-full py-3 mt-2 text-xs font-bold font-sans" disabled={loading}>
+                {loading ? "Creating Account..." : "Create Account & Verify"}
               </GlassButton>
             </form>
 
@@ -427,14 +473,14 @@ function SignupWizardContent() {
 
             <div className="flex flex-col gap-3">
               <GlassButton
-                onClick={() => signIn.social({ provider: "google", callbackURL: `${window.location.origin}/signup?step=3${planParam ? `&plan=${planParam}` : ""}` })}
+                onClick={() => signIn.social({ provider: "google", callbackURL: `${window.location.origin}/signup?step=2${planParam ? `&plan=${planParam}` : ""}` })}
                 variant="secondary"
                 className="w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
               >
                 <span>🌐</span> Sign Up with Google
               </GlassButton>
               <GlassButton
-                onClick={() => signIn.social({ provider: "apple", callbackURL: `${window.location.origin}/signup?step=3${planParam ? `&plan=${planParam}` : ""}` })}
+                onClick={() => signIn.social({ provider: "apple", callbackURL: `${window.location.origin}/signup?step=2${planParam ? `&plan=${planParam}` : ""}` })}
                 variant="secondary"
                 className="w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
               >
@@ -444,15 +490,15 @@ function SignupWizardContent() {
           </div>
         )}
 
-        {/* STEP 1 PENDING: EMAIL SENT VIEW */}
+        {/* STEP 1 PENDING: VERIFICATION LINK SENT */}
         {step === 1 && verificationPending && (
           <div className="text-center py-4">
             <div className="w-16 h-16 rounded-full bg-[var(--singr-accent-primary)]/10 text-[var(--singr-accent-primary)] flex items-center justify-center mx-auto mb-4 border border-[var(--singr-accent-primary)]/20 animate-pulse">
               <Mail className="w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-extrabold text-white mb-2">Check Your Email</h1>
+            <h1 className="text-2xl font-extrabold text-white mb-2">Verify Your Email</h1>
             <p className="text-xs text-[var(--singr-text-secondary)] font-sans max-w-sm mx-auto leading-relaxed mb-6">
-              A verification link was sent to <strong className="text-white">{email || session?.user?.email}</strong>. Once you click the link, click the button below to continue.
+              A verification link was sent to <strong className="text-white">{email || session?.user?.email}</strong>. Once you click the link in your email, click below to proceed.
             </p>
 
             <div className="flex flex-col gap-3 max-w-xs mx-auto">
@@ -460,62 +506,31 @@ function SignupWizardContent() {
                 <Check className="w-4 h-4" /> I've Verified My Email
               </GlassButton>
               
-              <GlassButton onClick={handleResendLink} variant="secondary" className="w-full py-3 text-xs font-bold" disabled={loading}>
-                Resend Verification Link
+              <GlassButton 
+                onClick={handleResendLink} 
+                variant="secondary" 
+                className="w-full py-3 text-xs font-bold" 
+                disabled={loading || resendCooldown > 0}
+              >
+                {resendCooldown > 0 ? `Resend Link (${resendCooldown}s)` : "Resend Verification Link"}
               </GlassButton>
             </div>
 
             <p className="mt-8 text-[10px] text-[var(--singr-text-secondary)] font-sans">
-              Wrong email address? <button onClick={() => { setVerificationPending(false); authClient.signOut(); }} className="text-[var(--singr-accent-primary)] hover:underline bg-transparent border-none p-0 cursor-pointer">Start Over</button>
+              Need to use a different email?{" "}
+              <button 
+                onClick={handleStartOver} 
+                className="text-[var(--singr-accent-primary)] hover:underline bg-transparent border-none p-0 cursor-pointer"
+                disabled={loading}
+              >
+                Start Over
+              </button>
             </p>
           </div>
         )}
 
-        {/* STEP 2: SET PASSWORD */}
+        {/* STEP 2: COMPLETE PROFILE (ADD PASSWORD OPTIONALLY FOR OAUTH USERS) */}
         {step === 2 && (
-          <div>
-            <div className="text-center mb-6">
-              <div className="w-12 h-12 rounded-full bg-[var(--singr-accent-primary)]/10 text-[var(--singr-accent-primary)] flex items-center justify-center mx-auto mb-3 border border-[var(--singr-accent-primary)]/20">
-                <Lock className="w-6 h-6" />
-              </div>
-              <h1 className="text-2xl font-extrabold text-white mb-2">Set Your Password</h1>
-              <p className="text-xs text-[var(--singr-text-secondary)] font-sans">
-                Set a secure password for your email credentials.
-              </p>
-            </div>
-
-            <form onSubmit={handleSetPassword} className="flex flex-col gap-4 font-sans text-sm">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Desired Password</label>
-                <GlassInput
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Confirm Password</label>
-                <GlassInput
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <GlassButton type="submit" variant="primary" className="w-full py-3 mt-4 text-xs font-bold" disabled={loading}>
-                {loading ? "Configuring Password..." : "Save and Continue"}
-              </GlassButton>
-            </form>
-          </div>
-        )}
-
-        {/* STEP 3: SETUP HOST PROFILE / SINGER UPGRADE */}
-        {step === 3 && (
           <div>
             <div className="text-center mb-6">
               <div className="w-12 h-12 rounded-full bg-[var(--singr-accent-primary)]/10 text-[var(--singr-accent-primary)] flex items-center justify-center mx-auto mb-3 border border-[var(--singr-accent-primary)]/20">
@@ -526,7 +541,7 @@ function SignupWizardContent() {
               </h1>
               <p className="text-xs text-[var(--singr-text-secondary)] font-sans">
                 {isUpgrading 
-                  ? "Enter your business details below to activate your hosting privileges."
+                  ? "Enter your business details below to activate host account features."
                   : "Tell us about yourself and your entertainment business."}
               </p>
             </div>
@@ -563,10 +578,44 @@ function SignupWizardContent() {
                 />
               </div>
 
+              {/* Conditional Password Settings for OAuth Sign-ups */}
+              {isOAuthWithoutPassword && (
+                <div className="border-t border-white/10 mt-4 pt-4 flex flex-col gap-4">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--singr-accent-primary)] mb-1 block">
+                    Secure Your Account
+                  </span>
+                  <p className="text-[11px] text-[var(--singr-text-secondary)] -mt-2 mb-2 leading-relaxed">
+                    Since you registered with a social provider, please create a password so you can also log in using your email address directly.
+                  </p>
+                  
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Password (min 8 chars)</label>
+                    <GlassInput
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Confirm Password</label>
+                    <GlassInput
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
               <GlassButton type="submit" variant="primary" className="w-full py-3 mt-4 text-xs font-bold flex items-center justify-center gap-1" disabled={loading}>
                 {isUpgrading 
                   ? (planParam ? "Save and Upgrade to Subscription" : "Save and Upgrade")
-                  : "Complete Registration"} <ArrowRight className="w-4 h-4" />
+                  : "Complete Onboarding"} <ArrowRight className="w-4 h-4" />
               </GlassButton>
             </form>
           </div>
@@ -581,7 +630,7 @@ export default function SignupWizardPage() {
     <Suspense fallback={
       <main className="min-h-screen flex items-center justify-center p-6 bg-[var(--singr-bg-primary)]">
         <GlassCard className="p-10 max-w-xl w-full text-center">
-          <p className="text-sm text-[var(--singr-text-secondary)] font-sans">Initializing onboarding wizard...</p>
+          <p className="text-sm text-[var(--singr-text-secondary)] font-sans">Loading onboarding wizard...</p>
         </GlassCard>
       </main>
     }>

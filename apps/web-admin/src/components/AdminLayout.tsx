@@ -14,17 +14,51 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, isPending: sessionLoading } = useSession();
+  const hasRedirected = React.useRef(false);
+
+  React.useEffect(() => {
+    if (sessionLoading) return;
+
+    if (!session && !hasRedirected.current) {
+      hasRedirected.current = true;
+      router.replace("/login");
+      return;
+    }
+
+    if (session && !hasRedirected.current) {
+      const user = session.user as any;
+      const isAdmin = user.roles?.includes("global_admin") || user.roles?.includes("support_admin");
+      if (!isAdmin) {
+        hasRedirected.current = true;
+        signOut().then(() => {
+          router.replace("/login?error=unauthorized");
+        });
+      }
+    }
+  }, [session, sessionLoading, router]);
 
   const handleLogout = async () => {
     await signOut();
-    router.push("/login");
+    hasRedirected.current = true;
+    router.replace("/login");
   };
 
   const navItems = [
     { name: "Global Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "User Management", href: "/users", icon: Users },
   ];
+
+  if (sessionLoading || (!session && !hasRedirected.current)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--singr-bg-primary)] text-[var(--singr-text-secondary)] font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-2 border-red-500/20 border-t-red-500 animate-spin"></div>
+          <p className="text-xs tracking-wider uppercase font-bold text-[var(--singr-text-secondary)]">Validating Admin Context...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[var(--singr-bg-primary)]">

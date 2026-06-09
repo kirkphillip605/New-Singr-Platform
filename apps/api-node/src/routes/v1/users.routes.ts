@@ -369,5 +369,36 @@ router.post('/set-password', requireAuth, async (req: AuthenticatedRequest, res)
   }
 })
 
+// 9. POST /v1/users/change-password — Change password for logged-in user (authenticated)
+router.post('/change-password', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required.',
+      })
+    }
+
+    // Call Better Auth changePassword server API
+    await auth.api.changePassword({
+      body: { currentPassword, newPassword },
+      headers: fromNodeHeaders(req.headers),
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password changed successfully.',
+    })
+  } catch (error: any) {
+    console.error('Error changing password:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to change password.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
 export default router
 

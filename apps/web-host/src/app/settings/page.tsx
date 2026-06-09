@@ -41,6 +41,11 @@ export default function HostSettingsPage() {
   // Linked accounts states
   const [accounts, setAccounts] = useState<any[]>([]);
 
+  // Password change states
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -248,6 +253,90 @@ export default function HostSettingsPage() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters long.");
+      setLoading(false);
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setError("New passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/users/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to change password.");
+      }
+
+      setSuccess("Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (err: any) {
+      setError(err.message || "Failed to change password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      setLoading(false);
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/users/set-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to set password.");
+      }
+
+      setSuccess("Password configured successfully!");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      await fetchAccounts();
+    } catch (err: any) {
+      setError(err.message || "Failed to set password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Social account linking/unlinking
   const handleLinkGoogle = async () => {
     setError("");
@@ -323,18 +412,16 @@ export default function HostSettingsPage() {
           >
             <UserIcon className="w-4 h-4" /> Profile Info
           </button>
-          {!disableSmsAuth && (
-            <button
-              onClick={() => { setActiveTab("security"); setError(""); setSuccess(""); }}
-              className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
-                activeTab === "security" 
-                  ? "border-[var(--singr-accent-primary)] text-white" 
-                  : "border-transparent text-[var(--singr-text-secondary)] hover:text-white"
-              }`}
-            >
-              <Lock className="w-4 h-4" /> Security & 2FA
-            </button>
-          )}
+          <button
+            onClick={() => { setActiveTab("security"); setError(""); setSuccess(""); }}
+            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
+              activeTab === "security" 
+                ? "border-[var(--singr-accent-primary)] text-white" 
+                : "border-transparent text-[var(--singr-text-secondary)] hover:text-white"
+            }`}
+          >
+            <Lock className="w-4 h-4" /> Security & Password
+          </button>
           <button
             onClick={() => { setActiveTab("linked"); setError(""); setSuccess(""); }}
             className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
@@ -505,93 +592,152 @@ export default function HostSettingsPage() {
           </div>
         )}
 
-        {/* SECURITY & 2FA TAB */}
-        {activeTab === "security" && !disableSmsAuth && (
-          <GlassCard className="p-8 max-w-2xl">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-[var(--singr-accent-primary)]">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white mb-1">Two-Factor Authentication (2FA)</h3>
-                <p className="text-xs text-[var(--singr-text-secondary)] font-sans max-w-md leading-relaxed">
-                  Add an extra layer of security to your host console by requiring a verification code sent to your mobile phone on every sign-in.
-                </p>
-              </div>
-            </div>
-
-            <div className="border-t border-[var(--singr-border)] my-6"></div>
-
-            {!phoneVerified ? (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex gap-3 text-amber-400 font-sans text-xs">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+        {/* SECURITY & PASSWORD TAB */}
+        {activeTab === "security" && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <GlassCard className="p-8 md:col-span-2">
+              {accounts.some(acc => acc.providerId === "credential" || acc.provider === "credential") ? (
+                /* CHANGE PASSWORD FORM */
                 <div>
-                  <h5 className="font-bold text-white mb-1">Phone Verification Required</h5>
-                  <p className="text-[var(--singr-text-secondary)] leading-relaxed m-0">
-                    You must enter and verify your mobile phone number in the <strong>Profile Info</strong> tab before you can enable Two-Factor Authentication.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-center p-4 rounded-xl bg-white/5 border border-white/5">
-                  <div className="font-sans">
-                    <p className="font-semibold text-white text-sm">SMS OTP Authentication</p>
-                    <p className="text-xs text-[var(--singr-text-secondary)] mt-0.5">Verify login access via code sent to {phoneNumber}</p>
-                  </div>
-                  
-                  {!showPasswordPrompt && (
-                    <GlassButton 
-                      variant={twoFactorEnabled ? "secondary" : "primary"}
-                      onClick={() => setShowPasswordPrompt(true)}
-                      className="text-xs py-2 px-4"
-                      disabled={loading}
-                    >
-                      {twoFactorEnabled ? "Disable 2FA" : "Enable 2FA"}
-                    </GlassButton>
-                  )}
-                </div>
-
-                {showPasswordPrompt && (
-                  <form onSubmit={handleToggle2FA} className="p-6 rounded-xl border border-white/5 bg-white/5 flex flex-col gap-4 font-sans text-sm">
+                  <h3 className="text-lg font-bold text-white mb-6">Change Security Password</h3>
+                  <form onSubmit={handleChangePassword} className="flex flex-col gap-4 font-sans text-sm">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-white">Confirm Your Current Password</label>
-                      <p className="text-[10px] text-[var(--singr-text-secondary)]">To prevent unauthorized changes, please confirm your host console password.</p>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Current Password</label>
                       <GlassInput
                         type="password"
                         placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
                         required
                       />
                     </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">New Password (min 8 chars)</label>
+                      <GlassInput
+                        type="password"
+                        placeholder="••••••••"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Confirm New Password</label>
+                      <GlassInput
+                        type="password"
+                        placeholder="••••••••"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <GlassButton type="submit" variant="primary" className="w-full py-3 mt-4 text-xs font-bold" disabled={loading}>
+                      {loading ? "Changing Password..." : "Update Password"}
+                    </GlassButton>
+                  </form>
+                </div>
+              ) : (
+                /* SET PASSWORD FORM */
+                <div>
+                  <h3 className="text-lg font-bold text-white mb-6">Create Account Password</h3>
+                  <p className="text-xs text-[var(--singr-text-secondary)] mb-6 font-sans leading-relaxed">
+                    You currently log in using a social identity provider. Create a password so you can also sign in with your email address directly.
+                  </p>
+                  <form onSubmit={handleSetPassword} className="flex flex-col gap-4 font-sans text-sm">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">New Password (min 8 chars)</label>
+                      <GlassInput
+                        type="password"
+                        placeholder="••••••••"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Confirm New Password</label>
+                      <GlassInput
+                        type="password"
+                        placeholder="••••••••"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <GlassButton type="submit" variant="primary" className="w-full py-3 mt-4 text-xs font-bold" disabled={loading}>
+                      {loading ? "Configuring Password..." : "Set Password"}
+                    </GlassButton>
+                  </form>
+                </div>
+              )}
+            </GlassCard>
+
+            {/* 2FA Column */}
+            {!disableSmsAuth && (
+              <GlassCard className="p-6 h-fit">
+                <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[var(--singr-accent-primary)]" />
+                  Two-Factor Auth
+                </h4>
+                <p className="text-xs text-[var(--singr-text-secondary)] font-sans mb-4 leading-relaxed">
+                  Require a mobile verification code on sign-in.
+                </p>
+                
+                {!phoneVerified ? (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 font-sans text-[11px] leading-relaxed">
+                    Verify your phone number in <strong>Profile Info</strong> first to enable 2FA.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <div className="text-xs text-[var(--singr-text-secondary)] font-sans">
+                      SMS 2FA: <span className={twoFactorEnabled ? "text-emerald-400 font-semibold" : "text-slate-400 font-semibold"}>{twoFactorEnabled ? "Active" : "Disabled"}</span>
+                    </div>
                     
-                    <div className="flex gap-2 justify-end mt-2">
+                    {!showPasswordPrompt ? (
                       <GlassButton 
-                        type="button" 
-                        variant="secondary" 
-                        onClick={() => { setShowPasswordPrompt(false); setConfirmPassword(""); }}
-                        className="py-2 px-4 text-xs"
-                      >
-                        Cancel
-                      </GlassButton>
-                      <GlassButton 
-                        type="submit" 
                         variant={twoFactorEnabled ? "secondary" : "primary"}
-                        className="py-2 px-4 text-xs font-bold border border-red-500/10 hover:border-red-500/30 text-red-400"
+                        onClick={() => setShowPasswordPrompt(true)}
+                        className="text-[10px] py-2 w-full uppercase font-bold tracking-wider"
                         disabled={loading}
                       >
-                        {loading 
-                          ? "Verifying Ledger..." 
-                          : (twoFactorEnabled ? "Disable Security 2FA" : "Enforce Security 2FA")
-                        }
+                        {twoFactorEnabled ? "Disable 2FA" : "Enable 2FA"}
                       </GlassButton>
-                    </div>
-                  </form>
+                    ) : (
+                      <form onSubmit={handleToggle2FA} className="flex flex-col gap-3 mt-2 font-sans text-xs">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--singr-text-secondary)]">Password</label>
+                        <GlassInput
+                          type="password"
+                          placeholder="••••••••"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                          className="py-1.5"
+                        />
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <GlassButton 
+                            type="button" 
+                            variant="secondary" 
+                            onClick={() => { setShowPasswordPrompt(false); setConfirmPassword(""); }}
+                            className="py-1.5 text-[9px] uppercase font-bold tracking-wider"
+                          >
+                            Cancel
+                          </GlassButton>
+                          <GlassButton 
+                            type="submit" 
+                            variant={twoFactorEnabled ? "secondary" : "primary"}
+                            className="py-1.5 text-[9px] uppercase font-bold tracking-wider"
+                            disabled={loading}
+                          >
+                            Confirm
+                          </GlassButton>
+                        </div>
+                      </form>
+                    )}
+                  </div>
                 )}
-              </div>
+              </GlassCard>
             )}
-          </GlassCard>
+          </div>
         )}
 
         {/* LINKED ACCOUNTS TAB */}

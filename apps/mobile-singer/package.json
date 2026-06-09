@@ -14,7 +14,7 @@
   "dependencies": {
     "@singr/shared": "workspace:*",
     "@singr/ui": "workspace:*",
-    "better-auth": "^1.1.18",
+    "better-auth": "^1.6.15",
     "dom7": "^4.0.6",
     "framework7": "^9.0.0",
     "framework7-react": "^9.0.0",

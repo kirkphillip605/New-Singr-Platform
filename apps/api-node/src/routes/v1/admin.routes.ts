@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js'
 import { requireRoles } from '../../middleware/rbac.middleware.js'
 import crypto from 'crypto'
+import { auth, sendMailjetEmail } from '../../lib/auth.js'
 
 const router: Router = Router()
 
@@ -316,6 +317,134 @@ router.get('/metrics', async (_req: AuthenticatedRequest, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to compile platform metrics.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+// 5. POST /v1/admin/create-admin — Create a new support admin or add the role to an existing user (global_admin only)
+router.post('/create-admin', async (req: AuthenticatedRequest, res) => {
+  const { email } = req.body
+
+  if (!req.user.roles.includes('global_admin')) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Only global administrators can create other admin accounts.',
+    })
+  }
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email address is required.',
+    })
+  }
+
+  const normalizedEmail = email.toLowerCase().trim()
+
+  try {
+    // Check if user exists
+    const existingUser = await rawPrisma.user.findUnique({
+      where: { email: normalizedEmail },
+    })
+
+    if (existingUser) {
+      // User exists. Update roles if they don't have support_admin
+      const roles = existingUser.roles || []
+      if (!roles.includes('support_admin')) {
+        const updatedRoles = [...roles, 'support_admin']
+        await rawPrisma.user.update({
+          where: { id: existingUser.id },
+          data: { roles: updatedRoles },
+        })
+      }
+
+      // Send email notification
+      const adminPortalUrl = process.env.ADMIN_PORTAL_URL || 'http://localhost:3011'
+      await sendMailjetEmail({
+        toEmail: normalizedEmail,
+        toName: existingUser.firstName || 'there',
+        subject: 'Admin Access Granted - Singr',
+        logLabel: 'AdminAccessGranted',
+        htmlContent: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #1a1a1a; color: #ffffff;">
+            <h2 style="color: #FF5722;">Admin Access Granted</h2>
+            <p>Hello,</p>
+            <p>You have been granted <strong>Support Administrator</strong> access to the Singr Admin Portal.</p>
+            <p>You can now log in using your existing account credentials.</p>
+            <div style="margin: 24px 0;">
+              <a href="${adminPortalUrl}" style="background-color: #FF5722; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to Admin Portal</a>
+            </div>
+            <p style="color: #888; font-size: 11px; margin-top: 24px;">If you believe this was an error, please contact a global administrator.</p>
+          </div>
+        `,
+      })
+
+      return res.status(200).json({
+        success: true,
+        message: `Admin access granted to existing user ${normalizedEmail}.`,
+      })
+    } else {
+      // User does not exist. Create new user with temp password and support_admin role
+      const tempPassword = crypto.randomBytes(8).toString('hex') + 'A1!'
+      
+      const signUpResult = await auth.api.signUpEmail({
+        body: {
+          email: normalizedEmail,
+          password: tempPassword,
+          name: normalizedEmail.split('@')[0],
+        },
+      })
+
+      if (!signUpResult || !signUpResult.user) {
+        throw new Error('Failed to create new user account via Better Auth.')
+      }
+
+      // Update emailVerified to true and set roles to support_admin
+      await prisma.user.update({
+        where: { id: signUpResult.user.id },
+        data: {
+          emailVerified: true,
+          roles: ['support_admin'],
+        },
+      })
+
+      // Send welcome email with credentials
+      const adminPortalUrl = process.env.ADMIN_PORTAL_URL || 'http://localhost:3011'
+      await sendMailjetEmail({
+        toEmail: normalizedEmail,
+        toName: normalizedEmail.split('@')[0],
+        subject: 'Welcome to Singr Admin - Your Account is Ready',
+        logLabel: 'AdminWelcomeEmail',
+        htmlContent: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #1a1a1a; color: #ffffff;">
+            <h2 style="color: #FF5722;">Welcome to Singr Admin!</h2>
+            <p>Hello,</p>
+            <p>A Support Administrator account has been created for you on the Singr Admin Portal.</p>
+            <p>Here are your temporary login credentials:</p>
+            <div style="background-color: #2a2a2a; padding: 15px; border-radius: 6px; margin: 20px 0;">
+              <p style="margin: 5px 0;"><strong>Email:</strong> ${normalizedEmail}</p>
+              <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="background-color: #333; padding: 2px 6px; border-radius: 4px; color: #FF5722;">${tempPassword}</code></p>
+            </div>
+            <p>Please log in and reset your password immediately.</p>
+            <div style="margin: 24px 0;">
+              <a href="${adminPortalUrl}" style="background-color: #FF5722; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Log In to Admin Portal</a>
+            </div>
+            <p style="color: #888; font-size: 11px; margin-top: 24px;">This account was created by a global administrator. Do not share your credentials.</p>
+          </div>
+        `,
+      })
+
+      return res.status(201).json({
+        success: true,
+        message: `New support admin account created for ${normalizedEmail}.`,
+      })
+    }
+  } catch (error: any) {
+    console.error('Error creating admin:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create admin account.',
       error: error instanceof Error ? error.message : String(error),
     })
   }

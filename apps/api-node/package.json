@@ -13,12 +13,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@better-auth/passkey": "^1.6.11",
-    "@better-auth/prisma-adapter": "^1.6.11",
-    "@better-auth/stripe": "^1.6.11",
+    "@better-auth/passkey": "^1.6.15",
+    "@better-auth/prisma-adapter": "^1.6.15",
+    "@better-auth/stripe": "^1.6.15",
     "@singr/db": "workspace:*",
     "@singr/shared": "workspace:*",
-    "better-auth": "^1.6.11",
+    "better-auth": "^1.6.15",
     "bullmq": "^5.77.6",
     "cors": "^2.8.6",
     "dotenv": "^16.4.0",
