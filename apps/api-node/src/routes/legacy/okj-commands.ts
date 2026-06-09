@@ -77,7 +77,7 @@ export async function handleCommand(command: string, data: any, system: any): Pr
       const venuesList = shows.map((show) => ({
         venue_id: show.legacyId,
         uuid: show.id,
-        name: show.showName,
+        name: show.venue?.name ? `${show.showName} (${show.venue.name})` : show.showName,
         url_name: show.slug,
         accepting: show.isAccepting,
       }))

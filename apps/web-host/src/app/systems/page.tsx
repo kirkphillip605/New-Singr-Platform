@@ -158,7 +158,7 @@ export default function SystemsPage() {
       <div className="flex flex-col gap-6">
         
         {/* Header CTA */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <p className="text-sm text-[var(--singr-text-secondary)] font-sans m-0">
             Register your local karaoke player PCs or Tauri desktop agents. Singr auto-fills number gaps.
           </p>
@@ -166,7 +166,7 @@ export default function SystemsPage() {
             onClick={handleCreateSystem} 
             disabled={actionLoading}
             variant="primary" 
-            className="text-xs py-2.5 px-4 flex items-center gap-1.5"
+            className="text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 shrink-0"
           >
             <Plus className="w-4 h-4" /> {actionLoading ? "Provisioning..." : "Provision System"}
           </GlassButton>

@@ -15,7 +15,9 @@ import {
   LogOut,
   Settings,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  Menu,
+  X
 } from "lucide-react";
 
 interface HostLayoutProps {
@@ -42,6 +44,7 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
   const { data: session, isPending: sessionLoading } = useSession();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const hasRedirected = useRef(false);
 
   // Billing states (for when subscription is inactive)
@@ -151,6 +154,11 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
     }
   }, [isSubscribed, apiUrl]);
 
+  // Close the mobile nav whenever the route changes
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
   const handleLogout = async () => {
     await signOut();
     hasRedirected.current = true;
@@ -211,74 +219,111 @@ export const HostLayout: React.FC<HostLayoutProps> = ({ children, title }) => {
   // Account settings and Billing routes are always allowed to render children
   const isAccountRoute = pathname === "/settings" || pathname === "/billing";
 
+  const sidebarContent = (
+    <>
+      <div>
+        <div className="flex items-center justify-between mb-8">
+          <SingrLogo variant="white" className="h-7 w-auto object-contain" />
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(false)}
+            className="lg:hidden text-[var(--singr-text-secondary)] hover:text-white p-1 rounded-lg"
+            aria-label="Close navigation"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <nav className="flex flex-col gap-1.5">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <a
+                key={item.name}
+                href={item.href}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all decoration-none ${
+                  isActive
+                    ? "bg-gradient-to-r from-[var(--singr-brand-start)]/10 to-[var(--singr-brand-end)]/10 border border-[var(--singr-accent-primary)]/20 text-[var(--singr-accent-primary)]"
+                    : "text-[var(--singr-text-secondary)] hover:text-white hover:bg-[var(--glass-bg)] border border-transparent"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {item.name}
+              </a>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* User Card & Logout */}
+      <div className="flex flex-col gap-4">
+        <div className="border-t border-[var(--singr-border)] pt-4"></div>
+        {session?.user && (
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] flex items-center justify-center text-white font-bold text-sm">
+              {session.user.name?.charAt(0).toUpperCase() || "H"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{session.user.name}</p>
+              <p className="text-[10px] text-[var(--singr-text-secondary)] truncate">{session.user.email}</p>
+            </div>
+          </div>
+        )}
+        <GlassButton
+          onClick={handleLogout}
+          variant="secondary"
+          className="w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2 border border-red-500/10 hover:border-red-500/30 hover:bg-red-500/5 text-red-400"
+        >
+          <LogOut className="w-3.5 h-3.5" /> Log Out Console
+        </GlassButton>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex min-h-screen bg-[var(--singr-bg-primary)]">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 border-r border-[var(--singr-border)] bg-[var(--singr-bg-secondary)]/10 backdrop-blur-xl flex flex-col justify-between p-6">
-        <div>
-          <div className="flex items-center mb-8">
-            <SingrLogo variant="white" className="h-7 w-auto object-contain" />
-          </div>
-
-          <nav className="flex flex-col gap-1.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all decoration-none ${
-                    isActive
-                      ? "bg-gradient-to-r from-[var(--singr-brand-start)]/10 to-[var(--singr-brand-end)]/10 border border-[var(--singr-accent-primary)]/20 text-[var(--singr-accent-primary)]"
-                      : "text-[var(--singr-text-secondary)] hover:text-white hover:bg-[var(--glass-bg)] border border-transparent"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {item.name}
-                </a>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* User Card & Logout */}
-        <div className="flex flex-col gap-4">
-          <div className="border-t border-[var(--singr-border)] pt-4"></div>
-          {session?.user && (
-            <div className="flex items-center gap-3 px-2">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[var(--singr-brand-start)] to-[var(--singr-brand-end)] flex items-center justify-center text-white font-bold text-sm">
-                {session.user.name?.charAt(0).toUpperCase() || "H"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white truncate">{session.user.name}</p>
-                <p className="text-[10px] text-[var(--singr-text-secondary)] truncate">{session.user.email}</p>
-              </div>
-            </div>
-          )}
-          <GlassButton
-            onClick={handleLogout}
-            variant="secondary"
-            className="w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2 border border-red-500/10 hover:border-red-500/30 hover:bg-red-500/5 text-red-400"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Log Out Console
-          </GlassButton>
-        </div>
+      {/* Desktop Sidebar Navigation */}
+      <aside className="hidden lg:flex w-64 shrink-0 border-r border-[var(--singr-border)] bg-[var(--singr-bg-secondary)]/10 backdrop-blur-xl flex-col justify-between p-6">
+        {sidebarContent}
       </aside>
+
+      {/* Mobile Drawer */}
+      {mobileNavOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside className="relative z-10 w-72 max-w-[80vw] h-full border-r border-[var(--singr-border)] bg-[var(--singr-bg-secondary)] flex flex-col justify-between p-6 overflow-y-auto">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
 
       {/* Main Content Pane */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="border-b border-[var(--singr-border)] px-8 py-6 bg-[var(--singr-bg-secondary)]/5 backdrop-blur-md flex justify-between items-center">
-          <h2 className="text-2xl font-bold tracking-tight text-white">{title}</h2>
-          <div className="flex items-center gap-3">
+        <header className="border-b border-[var(--singr-border)] px-4 sm:px-6 lg:px-8 py-4 lg:py-6 bg-[var(--singr-bg-secondary)]/5 backdrop-blur-md flex justify-between items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              className="lg:hidden text-[var(--singr-text-secondary)] hover:text-white p-1 -ml-1 rounded-lg shrink-0"
+              aria-label="Open navigation"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-white truncate">{title}</h2>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--singr-text-secondary)] font-sans">
+            <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider text-[var(--singr-text-secondary)] font-sans">
               WS Gateway Live
             </span>
           </div>
         </header>
         
-        <div className="flex-1 p-8 overflow-y-auto">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {!isSubscribed && !isAccountRoute ? (
             /* DYNAMIC SUBSCRIPTION BLOCKING INTERFACE */
             <div className="max-w-4xl mx-auto flex flex-col gap-8 py-4">

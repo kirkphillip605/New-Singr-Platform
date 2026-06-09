@@ -23,6 +23,7 @@ import adminRouter from './routes/v1/admin.routes.js'
 import showsManagementRouter from './routes/v1/shows-management.routes.js'
 import teamsRouter from './routes/v1/teams.routes.js'
 import billingRouter from './routes/v1/billing.routes.js'
+import hostRouter from './routes/v1/host.routes.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -151,6 +152,7 @@ app.use('/api/v1/systems', systemsRouter)
 app.use('/api/v1/admin', adminRouter)
 app.use('/api/v1/teams', teamsRouter)
 app.use('/api/v1/billing', billingRouter)
+app.use('/api/v1/host', hostRouter)
 
 // Global Error Handler
 app.use(errorHandler)

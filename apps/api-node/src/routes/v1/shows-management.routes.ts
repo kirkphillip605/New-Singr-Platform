@@ -3,6 +3,7 @@ import { prisma } from '@singr/db'
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js'
 import { requireRoles } from '../../middleware/rbac.middleware.js'
+import { generateUniqueShowSlug } from '../../lib/slug.js'
 
 const router: Router = Router()
 
@@ -107,22 +108,12 @@ router.get('/', requireAuth, requireRoles(['host', 'host_manager']), async (req:
 router.post('/', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
   const venueId = req.body.venueId as string
   const showName = req.body.showName as string
-  const slug = req.body.slug as string
   const pinCode = req.body.pinCode as string | undefined
 
-  if (!venueId || !showName || !slug) {
+  if (!venueId || !showName) {
     return res.status(400).json({
       success: false,
-      message: 'venueId, showName, and slug are required fields.',
-    })
-  }
-
-  // Validate slug format
-  const slugRegex = /^[a-z0-9-_]+$/i
-  if (!slugRegex.test(slug)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Slug must only contain alphanumeric characters, hyphens, and underscores.',
+      message: 'venueId and showName are required fields.',
     })
   }
 
@@ -153,33 +144,32 @@ router.post('/', requireAuth, requireRoles(['host', 'host_manager']), async (req
       })
     }
 
-    // Check slug uniqueness
-    const existingShow = await prisma.show.findFirst({
-      where: {
-        slug: slug.toLowerCase().trim(),
-        deletedAt: null,
-      },
-    })
-
-    if (existingShow) {
-      return res.status(409).json({
-        success: false,
-        message: 'A show with this slug already exists. Please choose a different slug.',
-      })
+    // Generate a globally unique slug from the show name + venue name.
+    // Retry on the off-chance of a race that trips the DB unique index.
+    let show
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const slug = await generateUniqueShowSlug(showName, venue.name)
+      try {
+        show = await prisma.show.create({
+          data: {
+            venuesId: venue.id,
+            hostUsersId,
+            showName: showName.trim(),
+            slug,
+            pinCode: pinCode ? String(pinCode).trim() : null,
+            isAccepting: false,
+            serialCounter: 0,
+            createdBy: req.user.id,
+          },
+        })
+        break
+      } catch (err: any) {
+        if (err?.code === 'P2002' && attempt < 4) {
+          continue
+        }
+        throw err
+      }
     }
-
-    const show = await prisma.show.create({
-      data: {
-        venuesId: venue.id,
-        hostUsersId,
-        showName: showName.trim(),
-        slug: slug.toLowerCase().trim(),
-        pinCode: pinCode ? String(pinCode).trim() : null,
-        isAccepting: false,
-        serialCounter: 0,
-        createdBy: req.user.id,
-      },
-    })
 
     return res.status(201).json({
       success: true,
@@ -200,7 +190,6 @@ router.post('/', requireAuth, requireRoles(['host', 'host_manager']), async (req
 router.patch('/:id', requireAuth, requireRoles(['host', 'host_manager']), async (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string
   const showName = req.body.showName as string | undefined
-  const slug = req.body.slug as string | undefined
   const pinCode = req.body.pinCode as string | undefined
   const activeSystemsId = req.body.activeSystemsId as string | null | undefined
 
@@ -209,6 +198,9 @@ router.patch('/:id', requireAuth, requireRoles(['host', 'host_manager']), async 
       where: {
         id,
         deletedAt: null,
+      },
+      include: {
+        venue: { select: { name: true } },
       },
     })
 
@@ -229,40 +221,16 @@ router.patch('/:id', requireAuth, requireRoles(['host', 'host_manager']), async 
 
     const updateData: any = {}
 
-    if (showName !== undefined) {
+    if (showName !== undefined && showName.trim() !== show.showName) {
       updateData.showName = showName.trim()
+      // Regenerate the slug from the new show name + venue name.
+      updateData.slug = await generateUniqueShowSlug(showName, show.venue?.name, {
+        excludeShowId: id,
+      })
     }
 
     if (pinCode !== undefined) {
       updateData.pinCode = pinCode ? String(pinCode).trim() : null
-    }
-
-    if (slug !== undefined) {
-      const cleanSlug = slug.toLowerCase().trim()
-      const slugRegex = /^[a-z0-9-_]+$/i
-      if (!slugRegex.test(cleanSlug)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Slug must only contain alphanumeric characters, hyphens, and underscores.',
-        })
-      }
-
-      const existingShow = await prisma.show.findFirst({
-        where: {
-          slug: cleanSlug,
-          id: { not: id },
-          deletedAt: null,
-        },
-      })
-
-      if (existingShow) {
-        return res.status(409).json({
-          success: false,
-          message: 'A show with this slug already exists.',
-        })
-      }
-
-      updateData.slug = cleanSlug
     }
 
     if (activeSystemsId !== undefined) {

@@ -400,10 +400,10 @@ export default function HostSettingsPage() {
         )}
 
         {/* Navigation Tabs */}
-        <div className="flex gap-4 border-b border-[var(--singr-border)] pb-px">
+        <div className="flex gap-4 border-b border-[var(--singr-border)] pb-px overflow-x-auto">
           <button
             onClick={() => { setActiveTab("profile"); setError(""); setSuccess(""); }}
-            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
+            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === "profile" 
                 ? "border-[var(--singr-accent-primary)] text-white" 
                 : "border-transparent text-[var(--singr-text-secondary)] hover:text-white"
@@ -413,7 +413,7 @@ export default function HostSettingsPage() {
           </button>
           <button
             onClick={() => { setActiveTab("security"); setError(""); setSuccess(""); }}
-            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
+            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === "security" 
                 ? "border-[var(--singr-accent-primary)] text-white" 
                 : "border-transparent text-[var(--singr-text-secondary)] hover:text-white"
@@ -423,7 +423,7 @@ export default function HostSettingsPage() {
           </button>
           <button
             onClick={() => { setActiveTab("linked"); setError(""); setSuccess(""); }}
-            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer ${
+            className={`pb-4 px-2 text-sm font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all bg-transparent border-none cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === "linked" 
                 ? "border-[var(--singr-accent-primary)] text-white" 
                 : "border-transparent text-[var(--singr-text-secondary)] hover:text-white"

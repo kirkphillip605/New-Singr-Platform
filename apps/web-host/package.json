@@ -12,14 +12,17 @@
   },
   "dependencies": {
     "@better-auth/stripe": "^1.6.15",
+    "@radix-ui/react-dialog": "^1.1.16",
     "@singr/shared": "workspace:*",
     "@singr/ui": "workspace:*",
     "better-auth": "^1.6.15",
+    "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@singr/config": "workspace:*",

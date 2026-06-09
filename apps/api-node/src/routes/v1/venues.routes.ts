@@ -4,33 +4,9 @@ import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js'
 import { requireRoles } from '../../middleware/rbac.middleware.js'
 import { redis } from '../../lib/redis.js'
+import { geocodeAddress, searchPlaces } from '../../lib/google-maps.js'
 
 const router: Router = Router()
-
-// Helper to geocode an address manually via Google Geocoding API
-async function geocodeAddress(address1: string, city: string, state: string, zip: string): Promise<{ lat: number | null, lon: number | null }> {
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY
-  if (!apiKey) {
-    console.warn('⚠️ GOOGLE_PLACES_API_KEY is not set. Skipping geocoding API call.')
-    return { lat: null, lon: null }
-  }
-
-  const addressString = `${address1}, ${city}, ${state} ${zip}`
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressString)}&key=${apiKey}`
-
-  try {
-    const response = await fetch(url)
-    const data = await response.json() as any
-    if (data.status === 'OK' && data.results?.[0]?.geometry?.location) {
-      const loc = data.results[0].geometry.location
-      return { lat: loc.lat, lon: loc.lng }
-    }
-    console.warn(`Geocoding status was: ${data.status}`)
-  } catch (error: any) {
-    console.warn('Geocoding address failed:', error.message)
-  }
-  return { lat: null, lon: null }
-}
 
 // Helper to check if a user is linked to a venue via HostVenue or host_manager team membership
 async function canManageVenue(userId: string, venueId: string): Promise<boolean> {
@@ -104,55 +80,8 @@ router.get('/search', requireAuth, requireRoles(['host', 'host_manager']), async
     })
   }
 
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY
-
   try {
-    if (!apiKey) {
-      throw new Error('Google Places API key is not configured.')
-    }
-
-    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`
-    const response = await fetch(url)
-    const data = await response.json() as any
-
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      throw new Error(`Google Places API error: ${data.status} - ${data.error_message || 'Unknown error'}`)
-    }
-
-    const results = (data.results || []).map((place: any) => {
-      const addressString = place.formatted_address || ''
-      const parts = addressString.split(',').map((p: any) => p.trim())
-      
-      let address1 = parts[0] || place.name
-      let city = parts[1] || ''
-      let stateZip = parts[2] || ''
-      let state = ''
-      let zip = ''
-
-      if (stateZip) {
-        const szParts = stateZip.trim().split(/\s+/)
-        state = szParts[0] || ''
-        zip = szParts[1] || ''
-      }
-
-      if (!zip && parts.length > 3) {
-        state = parts[2] || ''
-        const zipPart = parts[3] || ''
-        zip = zipPart.trim().split(/\s+/)[0] || ''
-      }
-
-      return {
-        externalId: place.place_id,
-        name: place.name,
-        address1,
-        city: city || 'Unknown City',
-        state: state || 'TX',
-        zip: zip || '78701',
-        lat: place.geometry?.location?.lat || null,
-        lon: place.geometry?.location?.lng || null,
-        placeType: place.types?.[0] || 'bar',
-      }
-    })
+    const results = await searchPlaces(query)
 
     return res.status(200).json({
       success: true,

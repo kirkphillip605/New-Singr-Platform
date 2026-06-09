@@ -68,11 +68,11 @@ export default function TeamPage() {
       <div className="flex flex-col gap-6">
         
         {/* Header CTA */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <p className="text-sm text-[var(--singr-text-secondary)] font-sans m-0">
             Invite co-hosts or managers to run show queues and register venues under your account.
           </p>
-          <GlassButton onClick={() => setIsInviteOpen(!isInviteOpen)} variant="primary" className="text-xs py-2.5 px-4 flex items-center gap-1.5">
+          <GlassButton onClick={() => setIsInviteOpen(!isInviteOpen)} variant="primary" className="text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 shrink-0">
             <Plus className="w-4 h-4" /> {isInviteOpen ? "Collapse Form" : "Invite Member"}
           </GlassButton>
         </div>
