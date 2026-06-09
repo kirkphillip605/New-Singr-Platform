@@ -171,9 +171,9 @@ router.post('/webhook', async (req: any, res) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription
-        const stripeCustomerId = subscription.customer as string
-        const status = subscription.status
+        const stripeSub = event.data.object as any
+        const stripeCustomerId = stripeSub.customer as string
+        const status = stripeSub.status
 
         // subscription status mapping
         let subStatus = 'inactive'
@@ -181,25 +181,77 @@ router.post('/webhook', async (req: any, res) => {
           subStatus = 'active'
         }
 
-        // Find and update host profile
-        const hostProfile = await prisma.hostProfile.findUnique({
-          where: { stripeCustomerId },
-          include: { user: true },
+        // Find user by stripeCustomerId
+        const user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { stripeCustomerId },
+              { hostProfile: { stripeCustomerId } }
+            ]
+          },
+          include: { hostProfile: true }
         })
 
-        if (hostProfile) {
-          await prisma.hostProfile.update({
-            where: { userId: hostProfile.userId },
-            data: { subscriptionStatus: subStatus },
+        if (user) {
+          const priceId = stripeSub.items?.data[0]?.price?.id
+          const tier = await prisma.subscriptionTier.findFirst({
+            where: { stripePriceId: priceId }
+          })
+          const planName = tier?.name || 'monthly'
+
+          const subData = {
+            plan: planName,
+            referenceId: user.id,
+            stripeCustomerId,
+            stripeSubscriptionId: stripeSub.id,
+            status: status,
+            periodStart: new Date(stripeSub.current_period_start * 1000),
+            periodEnd: new Date(stripeSub.current_period_end * 1000),
+            trialStart: stripeSub.trial_start ? new Date(stripeSub.trial_start * 1000) : null,
+            trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
+            cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
+            cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
+            canceledAt: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000) : null,
+            endedAt: stripeSub.ended_at ? new Date(stripeSub.ended_at * 1000) : null,
+            billingInterval: stripeSub.items?.data[0]?.price?.recurring?.interval || 'month',
+            stripeScheduleId: (stripeSub.schedule as string) || null,
+          }
+
+          const existingSub = await prisma.subscription.findFirst({
+            where: { stripeSubscriptionId: stripeSub.id },
+          })
+
+          if (existingSub) {
+            await prisma.subscription.update({
+              where: { id: existingSub.id },
+              data: subData,
+            })
+          } else {
+            await prisma.subscription.create({
+              data: subData,
+            })
+          }
+
+          // Update HostProfile
+          await prisma.hostProfile.upsert({
+            where: { userId: user.id },
+            update: {
+              stripeCustomerId,
+              subscriptionStatus: subStatus,
+            },
+            create: {
+              userId: user.id,
+              stripeCustomerId,
+              subscriptionStatus: subStatus,
+            },
           })
 
           // Maintain roles bridge: grant/remove 'host' role based on active status
-          const user = hostProfile.user
           let updatedRoles = user.roles || []
 
           if (subStatus === 'active') {
             if (!updatedRoles.includes('host')) {
-              updatedRoles.push('host')
+              updatedRoles = [...updatedRoles, 'host']
             }
           } else {
             updatedRoles = updatedRoles.filter((r) => r !== 'host')
@@ -416,6 +468,226 @@ router.post('/verify-session', requireAuth, async (req: AuthenticatedRequest, re
     return res.status(500).json({
       success: false,
       message: 'Failed to verify checkout session.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+// 5. GET /v1/billing/portal-data — Fetch unified custom billing portal details (subscription, default payment method, past invoices, upcoming charge)
+router.get('/portal-data', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    // 1. Fetch user's local subscription state
+    const subscription = await prisma.subscription.findFirst({
+      where: { referenceId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    // 2. Fetch customer ID
+    let stripeCustomerId = req.user.stripeCustomerId
+    if (!stripeCustomerId) {
+      const hostProfile = await prisma.hostProfile.findUnique({
+        where: { userId: req.user.id }
+      })
+      stripeCustomerId = hostProfile?.stripeCustomerId || null
+    }
+
+    // If no Stripe customer, they are not subscribed yet
+    if (!stripeCustomerId) {
+      return res.status(200).json({
+        success: true,
+        subscription: null,
+        paymentMethod: null,
+        invoices: [],
+        upcomingInvoice: null,
+      })
+    }
+
+    // 3. Fetch Stripe dynamic details in parallel
+    const [pmResult, invoicesResult, upcomingResult] = await Promise.allSettled([
+      // Fetch default payment method details
+      (async () => {
+        const customer = await stripe.customers.retrieve(stripeCustomerId) as any
+        if (customer.deleted) return null
+
+        const pmId = customer.invoice_settings?.default_payment_method as string | undefined
+        if (!pmId) {
+          // Fallback to first available card payment method
+          const paymentMethods = await stripe.paymentMethods.list({
+            customer: stripeCustomerId,
+            type: 'card',
+            limit: 1,
+          })
+          if (paymentMethods.data.length > 0) {
+            return paymentMethods.data[0]
+          }
+          return null
+        }
+
+        return await stripe.paymentMethods.retrieve(pmId)
+      })(),
+
+      // Fetch invoice list
+      stripe.invoices.list({
+        customer: stripeCustomerId,
+        limit: 12,
+      }),
+
+      // Fetch upcoming invoice
+      (async () => {
+        try {
+          if (!subscription?.stripeSubscriptionId) {
+            return null
+          }
+          // Use the new createPreview API for 2026-05-27.dahlia
+          return await (stripe.invoices as any).createPreview({
+            customer: stripeCustomerId,
+            subscription: subscription.stripeSubscriptionId,
+          })
+        } catch {
+          // createPreview throws if there are no upcoming charges, return null in that case
+          return null
+        }
+      })()
+    ])
+
+    // Coalesce results safely
+    const paymentMethodRaw = pmResult.status === 'fulfilled' ? pmResult.value : null
+    const invoicesRaw = invoicesResult.status === 'fulfilled' ? invoicesResult.value : null
+    const upcomingInvoiceRaw = upcomingResult.status === 'fulfilled' ? upcomingResult.value : null
+
+    // Format payment method
+    let paymentMethod = null
+    if (paymentMethodRaw && (paymentMethodRaw as any).card) {
+      paymentMethod = {
+        brand: (paymentMethodRaw as any).card.brand,
+        last4: (paymentMethodRaw as any).card.last4,
+        expMonth: (paymentMethodRaw as any).card.exp_month,
+        expYear: (paymentMethodRaw as any).card.exp_year,
+      }
+    }
+
+    // Format invoices list
+    const invoices = invoicesRaw
+      ? invoicesRaw.data.map((inv) => ({
+          id: inv.id,
+          number: inv.number,
+          amount: inv.total || 0,
+          status: inv.status,
+          created: inv.created,
+          hostedUrl: inv.hosted_invoice_url,
+          pdf: inv.invoice_pdf,
+        }))
+      : []
+
+    // Format upcoming invoice
+    let upcomingInvoice = null
+    if (upcomingInvoiceRaw) {
+      upcomingInvoice = {
+        amount: (upcomingInvoiceRaw as any).total || (upcomingInvoiceRaw as any).amount_due || 0,
+        date: (upcomingInvoiceRaw as any).next_payment_attempt || (upcomingInvoiceRaw as any).period_end || null,
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      subscription,
+      paymentMethod,
+      invoices,
+      upcomingInvoice,
+    })
+  } catch (error: any) {
+    console.error('Error fetching billing portal data:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve billing portal details.',
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+// 6. POST /v1/billing/portal-session — Create flow-specific Stripe billing portal session redirect
+router.post('/portal-session', requireAuth, async (req: AuthenticatedRequest, res) => {
+  const { flowType, subscriptionId } = req.body
+
+  try {
+    let stripeCustomerId = req.user.stripeCustomerId
+    if (!stripeCustomerId) {
+      const hostProfile = await prisma.hostProfile.findUnique({
+        where: { userId: req.user.id }
+      })
+      stripeCustomerId = hostProfile?.stripeCustomerId || null
+    }
+
+    if (!stripeCustomerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'No Stripe customer profile found. Please subscribe first.',
+      })
+    }
+
+    const hostPortalUrl = process.env.HOST_PORTAL_URL || 'http://localhost:3011'
+    const returnUrl = `${hostPortalUrl}/billing`
+
+    const sessionParams: any = {
+      customer: stripeCustomerId,
+      return_url: returnUrl,
+    }
+
+    if (flowType === 'payment_method_update') {
+      sessionParams.flow_data = {
+        type: 'payment_method_update',
+      }
+    } else if (flowType === 'subscription_cancel') {
+      const subId = subscriptionId || (await prisma.subscription.findFirst({
+        where: { referenceId: req.user.id, status: 'active' },
+        orderBy: { createdAt: 'desc' },
+      }))?.stripeSubscriptionId
+
+      if (!subId) {
+        return res.status(400).json({
+          success: false,
+          message: 'No active subscription found to cancel.',
+        })
+      }
+
+      sessionParams.flow_data = {
+        type: 'subscription_cancel',
+        subscription_cancel: {
+          subscription: subId,
+        },
+      }
+    } else if (flowType === 'subscription_update') {
+      const subId = subscriptionId || (await prisma.subscription.findFirst({
+        where: { referenceId: req.user.id, status: 'active' },
+        orderBy: { createdAt: 'desc' },
+      }))?.stripeSubscriptionId
+
+      if (!subId) {
+        return res.status(400).json({
+          success: false,
+          message: 'No active subscription found to update.',
+        })
+      }
+
+      sessionParams.flow_data = {
+        type: 'subscription_update',
+        subscription_update: {
+          subscription: subId,
+        },
+      }
+    }
+
+    const session = await stripe.billingPortal.sessions.create(sessionParams)
+
+    return res.status(200).json({
+      success: true,
+      url: session.url,
+    })
+  } catch (error: any) {
+    console.error('Error creating portal session:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create billing portal session.',
       error: error instanceof Error ? error.message : String(error),
     })
   }

@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, signIn, authClient, useSession, signOut } from "@/lib/auth-client";
 import { GlassCard, GlassButton, GlassInput, SingrLogo } from "@singr/ui";
-import { Check, Mail, ArrowRight, Lock, Sparkles, UserCheck } from "lucide-react";
+import { Check, Mail, ArrowRight, Sparkles, UserCheck } from "lucide-react";
 
 function SignupWizardContent() {
   const router = useRouter();
@@ -194,7 +194,6 @@ function SignupWizardContent() {
           setInfoMessage("An unverified account already exists. We have sent a verification link.");
           setVerificationPending(true);
         }
-      } else {
         // Create new account
         const res = await signUp.email({
           email,
@@ -202,7 +201,7 @@ function SignupWizardContent() {
           name: email.split("@")[0] || "Host",
           roles: ["host", "singer"],
           callbackURL: `${window.location.origin}/verify-email`,
-        });
+        } as any);
 
         if (res?.error) {
           throw new Error(res.error.message || "Failed to create account.");

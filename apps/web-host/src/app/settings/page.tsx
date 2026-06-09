@@ -10,7 +10,6 @@ import {
   Lock, 
   Check, 
   Smartphone, 
-  AlertTriangle, 
   ShieldCheck, 
   Loader2,
   Link
